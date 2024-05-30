@@ -115,6 +115,7 @@ type case_analysis = {
   case_type : EConstr.t;
 }
 
+(* fonction qui traduit case_analysis dans une forme hors noyau *)
 let eval_case_analysis case =
   let open EConstr in
   let body = it_mkLambda_or_LetIn case.case_body case.case_arity in
@@ -155,6 +156,7 @@ let check_valid_elimination env sigma (ind, u as pind) ~dep s =
       (RecursionSchemeError
           (env, NotAllowedCaseAnalysis (false, s, pind)))
 
+(* Main function to build case analysis scheme *)
 let mis_make_case_com dep env sigma (ind, u as pind) (mib, mip) s =
   let open EConstr in
   let () = check_valid_elimination env sigma pind ~dep s in
@@ -275,6 +277,7 @@ let mis_make_case_com dep env sigma (ind, u as pind) (mib, mip) s =
  * on it with which predicate and which recursive function.
  *)
 
+(* Enables automatic declaration of induction principles when defining a new inductive type. *)
 let type_rec_branch is_rec dep env sigma (vargs,depPvect,decP) (mind,tyi) cs recargs =
   let open EConstr in
   let make_prod = make_prod_dep dep in
@@ -412,6 +415,7 @@ let make_rec_branch_arg env sigma (nparrec,fvect,decF) mind f cstr recargs =
   process_constr env 0 f (List.rev cstr.cs_args, recargs)
 
 (* Main function *)
+(* let sigma, l = mis_make_indrec env sigma [(pind,mib,mip,dep,kind)] mib (snd pind) *)
 let mis_make_indrec env sigma ?(force_mutual=false) listdepkind mib u =
   let u = EConstr.Unsafe.to_instance u in
   let env = RelEnv.make env in
@@ -423,7 +427,9 @@ let mis_make_indrec env sigma ?(force_mutual=false) listdepkind mib u =
   let nrec = List.length listdepkind in
   let depPvec =
     Array.make mib.mind_ntypes (None : (bool * constr) option) in
+  (* tableau de taille le npmbre de type dans le block initialisé à None *)
   let _ =
+    (* pacrours la liste listdepkind et pour chaque n-uplet, remplace dans le tableau de types le type à l'indice du n-uplet correspondant par .... *)
     let rec
         assign k = function
           | [] -> ()
@@ -432,14 +438,26 @@ let mis_make_indrec env sigma ?(force_mutual=false) listdepkind mib u =
                assign (k-1) rest)
     in
       assign nrec listdepkind in
-  let recargsvec =
+  let recargsvec =      
     Array.map (fun mip -> mip.mind_recargs) mib.mind_packets in
   (* recarg information for non recursive parameters *)
   let rec recargparn l n =
     if Int.equal n 0 then l else recargparn (mk_norec::l) (n-1) in
+  (* rajoute n fois un rtree node noRec sans args à l *)
   let recargpar = recargparn [] (nparams-nparrec) in
+  (* creer un tableau avec les branches non rec du type inductif *) 
   let make_one_rec p =
+    (* p : indice de la branch rec du type inductif en cours *)
     let makefix nbconstruct =
+      (*
+        i : 
+        ln : 
+        lrelevance : 
+        ltyp : 
+        ldef : 
+        
+        mrec 0 [] [] [] []
+       *)
       let rec mrec i ln lrelevance ltyp ldef = function
         | ((indi,u),mibi,mipi,dep,target_sort)::rest ->
           let tyi = snd indi in
@@ -683,11 +701,22 @@ let build_mutual_induction_scheme env sigma ?(force_mutual=false) = function
       mis_make_indrec env sigma ~force_mutual listdepkind mib u
   | _ -> anomaly (Pp.str "build_induction_scheme expects a non empty list of inductive types.")
 
+(* 
+   env   : unsafe unironement
+   sigma : existantial variables
+   pind  : (Names.MutInd.t * int)            * EConstr.EInstance.t
+           KerPair                           *  
+           a kernel name couple (kn1,kn2)
+   dep   : bool
+   kind  : evd.econstr
+           Type of incomplete terms
+ *)
+
 let build_induction_scheme env sigma pind dep kind =
-  let (mib,mip) as specif = lookup_mind_specif env (fst pind) in
-  if dep && not (Inductiveops.has_dependent_elim specif) then
+  let (mib,mip) as specif = lookup_mind_specif env (fst pind) in  (* Fetching information in the environment about an inductive type.v Raises an anomaly if the inductive type is not found.*)
+  if dep && not (Inductiveops.has_dependent_elim specif) then     (* Si le drapeaux des eliminations est vrai ET has_dependent_elim specif ALORS raise error*)
     raise (RecursionSchemeError (env, NotAllowedDependentAnalysis (true, fst pind)));
-  let sigma, l = mis_make_indrec env sigma [(pind,mib,mip,dep,kind)] mib (snd pind) in
+  let sigma, l = mis_make_indrec env sigma [(pind,mib,mip,dep,kind)] mib (snd pind) in    (* La grosse fonction *)
     sigma, List.hd l
 
 (*s Eliminations. *)
