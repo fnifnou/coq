@@ -192,6 +192,8 @@ type one_inductive_body = {
 
     mind_arity : inductive_arity; (** Arity sort and original user arity *)
 
+
+    (*i indexe du mutuel, j indexe du constructeur*)
     mind_consnames : Id.t array; (** Names of the constructors: [cij] *)
 
     mind_user_lc : types array;
@@ -212,6 +214,9 @@ type one_inductive_body = {
     mind_squashed : squash_info option;
     (** Is elimination restricted to the inductive's sort? *)
 
+
+
+    (* rel context constructeur S et 0, *)  
     mind_nf_lc : (rel_context * types) array;
  (** Head normalized constructor types so that their conclusion
      exposes the inductive type. It includes the parameters, i.e. each

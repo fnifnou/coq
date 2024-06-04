@@ -62,6 +62,7 @@ let mis_make_indrec env sigma ?(force_mutual=false) listdepkind mib u =
 		in
 		(* Body on make_one_rec *)
     		let ((indi,u),mibi,mipi,dep,kind) = List.nth listdepkind p in
+                . . .
 	in
     	(* Body of mis_make_indrec *)
     	!evdref, List.init nrec make_one_rec

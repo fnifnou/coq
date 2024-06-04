@@ -601,6 +601,8 @@ let mis_make_indrec env sigma ?(force_mutual=false) listdepkind mib u =
 
     (* Body on make_one_rec *)
     let ((indi,u),mibi,mipi,dep,kind) = List.nth listdepkind p in
+    (* on peut choisir aue tree est dependant et forest non *)
+
 
       if force_mutual || (mis_is_recursive_subset
         (List.map (fun ((indi,u),_,_,_,_) -> indi) listdepkind)
@@ -712,6 +714,14 @@ let build_mutual_induction_scheme env sigma ?(force_mutual=false) = function
    dep   : bool
    kind  : evd.econstr
            Type of incomplete terms
+
+mutual inductiv body
+mutual inductiv 
+
+pind : nom du block (premier element) plus un numero 
+ca veut dire que y q du poymorphisme
+universe : faire un effort d abstraction, mais moi je m en passe
+pind : le nom de l inductif
  *)
 
 let build_induction_scheme env sigma pind dep kind =
