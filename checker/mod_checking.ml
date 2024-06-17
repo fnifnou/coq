@@ -69,8 +69,10 @@ let check_constant_declaration env opac kn cb opacify =
     match body with
     | Some bd ->
       let j = infer env bd in
-      (try conv_leq env j.uj_type ty
-       with NotConvertible -> Type_errors.error_actual_type env j ty)
+      begin match conv_leq env j.uj_type ty with
+      | Result.Ok () -> ()
+      | Result.Error () -> Type_errors.error_actual_type env j ty
+      end
     | None -> ()
   in
   match body with
@@ -130,7 +132,7 @@ and get_holes_profiles_head env nargs ndecls lincheck = function
   | PHInd (ind, u) ->
       let (mib, _) = Inductive.lookup_mind_specif env ind in
       check_instance_mask env mib.mind_universes u lincheck
-  | PHInt _  | PHFloat _ -> lincheck
+  | PHInt _  | PHFloat _ | PHString _ -> lincheck
   | PHSort PSSProp -> if Environ.sprop_allowed env then lincheck else Type_errors.error_disallowed_sprop env
   | PHSort PSType io -> Partial_subst.maybe_add_univ io () lincheck
   | PHSort PSQSort (qio, uio) ->

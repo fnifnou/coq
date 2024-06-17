@@ -204,10 +204,10 @@ let interp_gen ~verbosely ~st ~interp_fn cmd =
     Exninfo.iraise exn
 
 (* Regular interp *)
-let interp ?(verbosely=true) ~st cmd =
+let interp ~intern ?(verbosely=true) ~st cmd =
   Vernacstate.unfreeze_full_state st;
   vernac_pperr_endline Pp.(fun () -> str "interpreting: " ++ Ppvernac.pr_vernac_expr cmd.CAst.v.expr);
-  let entry = NewProfile.profile "synterp" (fun () -> Synterp.synterp_control cmd) () in
+  let entry = NewProfile.profile "synterp" (fun () -> Synterp.synterp_control ~intern cmd) () in
   let interp = NewProfile.profile "interp" (fun () -> interp_gen ~verbosely ~st ~interp_fn:interp_control entry) () in
   Vernacstate.{ synterp = Vernacstate.Synterp.freeze (); interp }
 
@@ -215,10 +215,26 @@ let interp_entry ?(verbosely=true) ~st entry =
   Vernacstate.unfreeze_full_state st;
   interp_gen ~verbosely ~st ~interp_fn:interp_control entry
 
+module Intern = struct
+
+  let fs_intern dp =
+    match Loadpath.locate_absolute_library dp with
+    | Ok file ->
+      Feedback.feedback @@ Feedback.FileDependency (Some file, Names.DirPath.to_string dp);
+      let res, provenance = Library.intern_from_file file in
+      Result.iter (fun _ ->
+          Feedback.feedback @@ Feedback.FileLoaded (Names.DirPath.to_string dp, file)) res;
+      res, provenance
+    | Error e ->
+      Loadpath.Error.raise dp e
+end
+
+let fs_intern = Intern.fs_intern
+
 let interp_qed_delayed_proof ~proof ~st ~control (CAst.{loc; v = pe } as e) : Vernacstate.Interp.t =
-  let cmd = CAst.make ?loc { control; expr = VernacSynPure (VernacEndProof pe); attrs = [] } in
-  let CAst.{ loc; v = entry } = Synterp.synterp_control cmd in
-  let control = entry.control in
+  (* Synterp duplication of control handling bites us here... *)
+  let control = Synterp.add_default_timeout control in
+  let control = List.map Synterp.synpure_control control in
   NewProfile.profile "interp-delayed-qed" (fun () ->
       interp_gen ~verbosely:false ~st
         ~interp_fn:(interp_qed_delayed_control ~proof ~control) e)

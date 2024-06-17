@@ -81,7 +81,7 @@ val all_in_path :
 val trust_file_cache : bool ref
 (** [trust_file_cache] indicates whether we trust the underlying
     mapped file-system not to change along the execution of Coq. This
-    assumption greatly speds up file search, but it is often
+    assumption greatly speeds up file search, but it is often
     inconvenient in interactive mode *)
 
 val file_exists_respecting_case : string -> string -> bool
@@ -120,6 +120,8 @@ val check_caml_version : caml:string -> file:string -> unit
 
 type time
 type duration
+
+val empty_duration : duration
 
 val get_time : unit -> time
 val time_difference : time -> time -> float (** in seconds *)

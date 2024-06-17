@@ -269,11 +269,14 @@ val vm_infer_conv : ?pb:conv_pb -> env -> evar_map -> constr -> constr ->
 val native_infer_conv : ?pb:conv_pb -> env -> evar_map -> constr -> constr ->
   evar_map option
 
+type genconv = {
+  genconv : 'a 'err. conv_pb -> l2r:bool -> Evd.evar_map -> TransparentState.t ->
+    Environ.env -> ('a, 'err) Conversion.generic_conversion_function
+}
 
 (** [infer_conv_gen] behaves like [infer_conv] but is parametrized by a
 conversion function. Used to pretype vm and native casts. *)
-val infer_conv_gen : (conv_pb -> l2r:bool -> evar_map -> TransparentState.t ->
-    Environ.env -> evar_map Conversion.generic_conversion_function) ->
+val infer_conv_gen : genconv ->
   ?catch_incon:bool -> ?pb:conv_pb -> ?ts:TransparentState.t -> env ->
   evar_map -> constr -> constr -> evar_map option
 
@@ -306,7 +309,7 @@ val meta_instance : env -> evar_map -> constr freelisted -> constr
 exception AnomalyInConversion of exn
 
 (* inferred_universes just gathers the constraints. *)
-val inferred_universes : (UGraph.t * Univ.Constraints.t) Conversion.universe_compare
+val inferred_universes : (UGraph.t * Univ.Constraints.t, UGraph.univ_inconsistency) Conversion.universe_compare
 
 (** Deprecated *)
 
@@ -317,7 +320,7 @@ val splay_lam : env -> evar_map -> constr -> (Name.t EConstr.binder_annot * cons
 val splay_prod_assum : env -> evar_map -> constr -> rel_context * constr
 [@@ocaml.deprecated "Use [whd_decompose_prod_decls] instead."]
 val splay_prod_n : env -> evar_map -> int -> constr -> rel_context * constr
-[@@ocaml.deprecated "This function contracts let-ins. Replace either with whd_decompose_prod_n (if only products are expected, thenm returning only a list of assumptions), whd_decompose_prod_n_assum (if let-ins are expected to be preserved, returning a rel_context), or whd_decompose_prod_n_decls (if let-ins are expected to be preserved and counted, returning also a rel_context)"]
+[@@ocaml.deprecated "This function contracts let-ins. Replace either with whd_decompose_prod_n (if only products are expected, then returning only a list of assumptions), whd_decompose_prod_n_assum (if let-ins are expected to be preserved, returning a rel_context), or whd_decompose_prod_n_decls (if let-ins are expected to be preserved and counted, returning also a rel_context)"]
 val splay_lam_n : env -> evar_map -> int -> constr -> rel_context * constr
 [@@ocaml.deprecated "This function contracts let-ins. Replace either with whd_decompose_lambda_n (if only lambdas are expected, then returning only a list of assumptions) or whd_decompose_lambda_n_assum (if let-ins are expected to be preserved, returning a rel_context)"]
 
@@ -330,6 +333,6 @@ val hnf_decompose_lambda : env -> evar_map -> constr -> (Name.t EConstr.binder_a
 val hnf_decompose_prod_decls : env -> evar_map -> types -> rel_context * types
 [@@ocaml.deprecated "Use [whd_decompose_prod_decls] instead."]
 val hnf_decompose_prod_n_decls : env -> evar_map -> int -> types -> rel_context * types
-[@@ocaml.deprecated "This function contracts let-ins. Replace either with whd_decompose_prod_n (if only products are expected, thenm returning only a list of assumptions), whd_decompose_prod_n_assum (if let-ins are expected to be preserved, returning a rel_context), or whd_decompose_prod_n_decls (if let-ins are expected to be preserved and counted, returning also a rel_context)"]
+[@@ocaml.deprecated "This function contracts let-ins. Replace either with whd_decompose_prod_n (if only products are expected, then returning only a list of assumptions), whd_decompose_prod_n_assum (if let-ins are expected to be preserved, returning a rel_context), or whd_decompose_prod_n_decls (if let-ins are expected to be preserved and counted, returning also a rel_context)"]
 val hnf_decompose_lambda_n_assum : env -> evar_map -> int -> constr -> rel_context * constr
 [@@ocaml.deprecated "This function contracts let-ins. Replace either with whd_decompose_lambda_n (if only lambdas are expected, then returning only a list of assumptions) or whd_decompose_lambda_n_assum (if let-ins are expected to be preserved, returning a rel_context)"]

@@ -524,6 +524,12 @@ let get_caml_prim = let open CPrimitives in function
   | Arrayset -> Some CAML_Arrayset
   | Arraycopy -> Some CAML_Arraycopy
   | Arraylength -> Some CAML_Arraylength
+  | Stringmake -> Some CAML_Stringmake
+  | Stringlength -> Some CAML_Stringlength
+  | Stringget -> Some CAML_Stringget
+  | Stringsub -> Some CAML_Stringsub
+  | Stringcat -> Some CAML_Stringcat
+  | Stringcompare -> Some CAML_Stringcompare
   | _ -> None
 
 (* sz is the size of the local stack *)
@@ -539,6 +545,8 @@ let rec compile_lam env cenv lam sz cont =
   | Luint i -> compile_structured_constant cenv (Const_uint i) sz cont
 
   | Lfloat f -> compile_structured_constant cenv (Const_float f) sz cont
+
+  | Lstring s -> compile_structured_constant cenv (Const_string s) sz cont
 
   | Lproj (p,arg) ->
      compile_lam env cenv arg sz (Kproj (Projection.Repr.arg p) :: cont)
@@ -778,7 +786,17 @@ let rec compile_lam env cenv lam sz cont =
     (* Hack: brutally pierce through the abstraction of PArray *)
     let dummy = KerName.make (ModPath.MPfile DirPath.empty) (Names.Label.of_id @@ Id.of_string "dummy") in
     let dummy = (MutInd.make1 dummy, 0) in
-    let ar = Lmakeblock (dummy, 0, args) in (* build the ocaml array *)
+    let ar, cont = match Vmlambda.as_value 0 args with
+    | None ->
+      (* build the ocaml array *)
+      Lmakeblock (dummy, 0, args), cont
+    | Some v ->
+      (* dump the blob as is, but copy the resulting parray afterwards so that
+         the blob is left untouched by modifications to the resulting parray *)
+      let lbl = Label.create () in
+      (* dummy label, the array will never be an accumulator *)
+      Lval v, Klabel lbl :: Kcamlprim (CAML_Arraycopy, lbl) :: cont
+    in
     let kind = Lmakeblock (dummy, 0, [|ar; def|]) in (* Parray.Array *)
     let v = Lmakeblock (dummy, 0, [|kind|]) (* the reference *) in
     compile_lam env cenv v sz cont

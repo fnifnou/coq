@@ -812,8 +812,10 @@ let pr_arg_level from (lev,typ) =
 
 let pr_level ntn ({notation_entry = from; notation_level = fromlevel}, args) typs =
   (match from with InConstrEntry -> mt () | InCustomEntry s -> str "in " ++ str s ++ spc()) ++
-  str "at level " ++ int fromlevel ++ spc () ++ str "with arguments" ++ spc() ++
-  prlist_with_sep pr_comma (pr_arg_level fromlevel) (List.combine args typs)
+  str "at level " ++ int fromlevel ++
+  (match args with | [] -> mt () | _ :: _ ->
+     spc () ++ str "with arguments" ++ spc()
+     ++ prlist_with_sep pr_comma (pr_arg_level fromlevel) (List.combine args typs))
 
 let error_incompatible_level ntn oldprec oldtyps prec typs =
   user_err
@@ -894,6 +896,33 @@ let check_and_extend_constr_grammar ntn rule =
   with Not_found ->
     Egramcoq.extend_constr_grammar rule
 
+let warn_prefix_incompatible_level =
+  CWarnings.create ~name:"notation-incompatible-prefix"
+    ~category:CWarnings.CoreCategories.parsing
+    (fun (pref, ntn, pref_prec, pref_nottyps, prec, nottyps) ->
+      str "Notations " ++ pr_notation pref
+      ++ spc () ++ str "defined " ++ pr_level pref pref_prec pref_nottyps
+      ++ spc () ++ str "and " ++ pr_notation ntn
+      ++ spc () ++ str "defined " ++ pr_level ntn prec nottyps
+      ++ spc () ++ str "have incompatible prefixes."
+      ++ spc () ++ str "One of them will likely not work.")
+
+let check_prefix_incompatible_level ntn prec nottyps =
+  match Notgram_ops.longest_common_prefix ntn with
+  | None -> ()
+  | Some (pref, k) ->
+     try
+       let level_firstn k (lvl, lvls) = lvl, CList.firstn k lvls in
+       let pref_prec = Notation.level_of_notation pref in
+       let pref_prec = level_firstn k pref_prec in
+       let prec = level_firstn k prec in
+       let pref_nottyps = Notgram_ops.non_terminals_of_notation pref in
+       let pref_nottyps = CList.firstn k pref_nottyps in
+       let nottyps = CList.firstn k nottyps in
+       if not (level_eq prec pref_prec && List.for_all2 Extend.constr_entry_key_eq nottyps pref_nottyps) then
+         warn_prefix_incompatible_level (pref, ntn, pref_prec, pref_nottyps, prec, nottyps);
+     with Not_found | Failure _ -> ()
+
 let cache_one_syntax_extension (ntn,synext) =
   let prec = synext.synext_level in
   (* Check and ensure that the level and the precomputed parsing rule is declared *)
@@ -911,6 +940,7 @@ let cache_one_syntax_extension (ntn,synext) =
         error_incompatible_level ntn oldprec oldtyps prec synext.synext_nottyps;
       oldparsing
     with Not_found ->
+      check_prefix_incompatible_level ntn prec synext.synext_nottyps;
       (* Declare the level and the precomputed parsing rule *)
       let () = Notation.declare_notation_level ntn prec in
       let () = Notgram_ops.declare_notation_non_terminals ntn synext.synext_nottyps in
@@ -1286,6 +1316,18 @@ let printability level typs vars onlyparsing reversibility = function
      (warn_non_reversible_notation reversibility; true)
     else onlyparsing),None
 
+let warn_closed_notation_not_level_0 =
+  CWarnings.create ~name:"closed-notation-not-level-0" ~category:CWarnings.CoreCategories.parsing
+    (fun () -> strbrk "Closed notations (i.e. starting and ending with a \
+                       terminal symbol) should usually be at level 0 \
+                       (default).")
+
+let warn_postfix_notation_not_level_1 =
+  CWarnings.create ~name:"postfix-notation-not-level-1" ~category:CWarnings.CoreCategories.parsing
+    (fun () -> strbrk "Postfix notations (i.e. starting with a \
+                       nonterminal symbol and ending with a terminal \
+                       symbol) should usually be at level 1 (default).")
+
 let find_precedence custom lev etyps symbols onlyprint =
   let first_symbol =
     let rec aux = function
@@ -1303,11 +1345,16 @@ let find_precedence custom lev etyps symbols onlyprint =
   match first_symbol with
   | None -> [],0
   | Some (NonTerminal x) ->
+      let msgs, lev = match last_is_terminal (), lev with
+        | false, _ -> [], lev
+        | true, None -> [fun () -> Flags.if_verbose (Feedback.msg_info ?loc:None) (strbrk "Setting postfix notation at level 1.")], Some 1
+        | true, Some 1 -> [], Some 1
+        | true, Some n -> [fun () -> warn_postfix_notation_not_level_1 ()], Some n in
       let test () =
         if onlyprint then
           if Option.is_empty lev then
             user_err Pp.(str "Explicit level needed in only-printing mode when the level of the leftmost non-terminal is given.")
-          else [],Option.get lev
+          else msgs,Option.get lev
         else
           user_err Pp.(str "The level of the leftmost non-terminal cannot be changed.") in
       (try match List.assoc x etyps, custom with
@@ -1317,7 +1364,7 @@ let find_precedence custom lev etyps symbols onlyprint =
             | None ->
               ([fun () -> Flags.if_verbose (Feedback.msg_info ?loc:None) (strbrk "Setting notation at level 0.")],0)
             | Some 0 ->
-              ([],0)
+              (msgs,0)
             | _ ->
               user_err Pp.(str "A notation starting with an atomic expression must be at level 0.")
             end
@@ -1328,15 +1375,17 @@ let find_precedence custom lev etyps symbols onlyprint =
             (* Give a default ? *)
             if Option.is_empty lev then
               user_err Pp.(str "Need an explicit level.")
-            else [],Option.get lev
+            else msgs,Option.get lev
       with Not_found ->
         if Option.is_empty lev then
           user_err Pp.(str "A left-recursive notation must have an explicit level.")
-        else [],Option.get lev)
+        else msgs,Option.get lev)
   | Some (Terminal _) when last_is_terminal () ->
-      if Option.is_empty lev then
-        ([fun () -> Flags.if_verbose (Feedback.msg_info ?loc:None) (strbrk "Setting notation at level 0.")], 0)
-      else [],Option.get lev
+      begin match lev with
+      | None -> [fun () -> Flags.if_verbose (Feedback.msg_info ?loc:None) (strbrk "Setting notation at level 0.")], 0
+      | Some 0 -> [], 0
+      | Some n -> [fun () -> warn_closed_notation_not_level_0 ()], n
+      end
   | Some _ ->
       if Option.is_empty lev then user_err Pp.(str "Cannot determine the level.");
       [],Option.get lev

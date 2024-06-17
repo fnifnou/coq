@@ -321,10 +321,11 @@ type frozen_and_pending =
        [None] means empty.*)
     -> frozen_and_pending
 
-let frozen_and_pending_holes (sigma, sigma') =
+let frozen_and_pending_holes (sigma, sigma') term =
   let undefined0 = Option.cata Evd.undefined_map Evar.Map.empty sigma in
+  let included = Option.cata (Evd.evars_of_term sigma') Evar.Set.empty term in
   let pending =
-    if undefined0 == Evd.undefined_map sigma'
+    if undefined0 == Evd.undefined_map sigma' && Evar.Set.is_empty included
     then None
     else
       Some (lazy begin
@@ -345,7 +346,7 @@ let frozen_and_pending_holes (sigma, sigma') =
             (Evd.undefined_map sigma')
             (Evar.Set.empty, Evar.Set.empty)
         in
-        Evar.Set.diff pending aliases;
+        Evar.Set.union included (Evar.Set.diff pending aliases);
       end)
   in
   Frz (Evd.undefined_map sigma', pending)
@@ -437,39 +438,51 @@ let check_evars env ?initial sigma c =
     | _ -> EConstr.iter sigma proc_rec c
   in proc_rec c
 
-let check_evars_are_solved ~program_mode env sigma frozen =
+let check_problems_are_solved env sigma = function
+  | Frz (_, None) -> ()
+  | Frz (_, Some (lazy pending)) -> check_problems_are_solved ~evars:pending env sigma
+
+let check_evars_are_solved_from ~program_mode env sigma frozen frozen_for_pb =
   check_typeclasses_instances_are_solved ~program_mode env sigma frozen;
-  check_problems_are_solved env sigma;
+  check_problems_are_solved env sigma frozen_for_pb;
   check_extra_evars_are_solved env sigma frozen
 
 (* Try typeclasses, hooks, unification heuristics ... *)
 
-let solve_remaining_evars ?hook (flags : inference_flags) env ?initial sigma =
+let solve_remaining_evars_from ?hook (flags : inference_flags) env ?initial sigma term =
   let program_mode = flags.program_mode in
-  let frozen = frozen_and_pending_holes (initial, sigma) in
   let sigma =
     match flags.use_typeclasses with
-    | UseTC -> apply_typeclasses ~program_mode ~fail_evar:false env sigma frozen
+    | UseTC ->
+      let frozen = frozen_and_pending_holes (initial, sigma) None in
+      apply_typeclasses ~program_mode ~fail_evar:false env sigma frozen
     | NoUseTC | UseTCForConv -> sigma
   in
-  let frozen = frozen_and_pending_holes (initial, sigma) in
   let sigma = match hook with
   | None -> sigma
-  | Some hook -> apply_inference_hook hook env sigma frozen
+  | Some hook ->
+    let frozen = frozen_and_pending_holes (initial, sigma) None in
+    apply_inference_hook hook env sigma frozen
   in
   let sigma = if flags.solve_unification_constraints
     then apply_heuristics ~patvars_abstract:flags.patvars_abstract env sigma
     else sigma
   in
-  if flags.fail_evar then check_evars_are_solved ~program_mode env sigma frozen;
+  let () = if flags.fail_evar then
+    let frozen = frozen_and_pending_holes (initial, sigma) None in
+    let frozen_for_pb = frozen_and_pending_holes (initial, sigma) term in
+    check_evars_are_solved_from ~program_mode env sigma frozen frozen_for_pb in
   sigma
 
+let solve_remaining_evars ?hook (flags : inference_flags) env ?initial sigma =
+  solve_remaining_evars_from ?hook (flags : inference_flags) env ?initial sigma None
+
 let check_evars_are_solved ~program_mode env ?initial current_sigma =
-  let frozen = frozen_and_pending_holes (initial, current_sigma) in
-  check_evars_are_solved ~program_mode env current_sigma frozen
+  let frozen = frozen_and_pending_holes (initial, current_sigma) None in
+  check_evars_are_solved_from ~program_mode env current_sigma frozen frozen
 
 let process_inference_flags flags env initial (sigma,c,cty) =
-  let sigma = solve_remaining_evars flags env ~initial sigma in
+  let sigma = solve_remaining_evars_from flags env ~initial sigma (Some cty) in
   let c = if flags.expand_evars then nf_evar sigma c else c in
   sigma,c,cty
 
@@ -630,6 +643,7 @@ type pretyper = {
   pretype_cast : pretyper -> glob_constr * cast_kind option * glob_constr -> unsafe_judgment pretype_fun;
   pretype_int : pretyper -> Uint63.t -> unsafe_judgment pretype_fun;
   pretype_float : pretyper -> Float64.t -> unsafe_judgment pretype_fun;
+  pretype_string : pretyper -> Pstring.t -> unsafe_judgment pretype_fun;
   pretype_array : pretyper -> glob_instance option * glob_constr array * glob_constr * glob_constr -> unsafe_judgment pretype_fun;
   pretype_type : pretyper -> glob_constr -> unsafe_type_judgment pretype_fun;
 }
@@ -676,6 +690,8 @@ let eval_pretyper self ~flags tycon env sigma t =
     self.pretype_int self n ?loc ~flags tycon env sigma
   | GFloat f ->
     self.pretype_float self f ?loc ~flags tycon env sigma
+  | GString s ->
+    self.pretype_string self s ?loc ~flags tycon env sigma
   | GArray (u,t,def,ty) ->
     self.pretype_array self (u,t,def,ty) ?loc ~flags tycon env sigma
 
@@ -1329,9 +1345,7 @@ struct
     let pretype tycon env sigma c = eval_pretyper self ~flags tycon env sigma c in
     let sigma, cj =
       let sigma, tj = eval_type_pretyper self ~flags empty_valcon env sigma t in
-      let sigma, tval = Evarsolve.refresh_universes
-          ~onlyalg:true ~status:Evd.univ_flexible (Some false) !!env sigma tj.utj_val in
-      let tval = nf_evar sigma tval in
+      let tval = nf_evar sigma tj.utj_val in
       let (sigma, cj), tval = match k with
         | Some VMcast ->
           let sigma, cj = pretype empty_tycon env sigma c in
@@ -1425,6 +1439,15 @@ let pretype_type self c ?loc ~flags valcon (env : GlobEnv.t) sigma = match DAst.
         in
         discard_trace @@ inh_conv_coerce_to_tycon ?loc ~flags env sigma resj tycon
 
+  let pretype_string self s =
+    fun ?loc ~flags tycon env sigma ->
+      let resj =
+        try Typing.judge_of_string !!env s
+        with Invalid_argument _ ->
+          user_err ?loc (str "Type of string should be registered first.")
+        in
+        discard_trace @@ inh_conv_coerce_to_tycon ?loc ~flags env sigma resj tycon
+
   let pretype_array self (u,t,def,ty) =
     fun ?loc ~flags tycon env sigma ->
     let sigma, u = match u with
@@ -1490,6 +1513,7 @@ let default_pretyper =
     pretype_cast = pretype_cast;
     pretype_int = pretype_int;
     pretype_float = pretype_float;
+    pretype_string = pretype_string;
     pretype_array = pretype_array;
     pretype_type = pretype_type;
   }

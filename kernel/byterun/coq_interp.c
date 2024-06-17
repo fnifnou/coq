@@ -860,7 +860,7 @@ value coq_interprete
         *--sp=accu;
         Coq_alloc_small(accu, nfuncs * 3 + nvars, Closure_tag);
         Field(accu, nfuncs * 3 + nvars - 1) = *sp++;
-        p = &Field(accu, 0);
+        p = (value *) &Field(accu, 0);
         *p++ = (value) (pc + pc[0]);
         *p++ = Val_int(nfuncs * 3 - 1);
         for (i = 1; i < nfuncs; i++) {
@@ -1047,13 +1047,12 @@ value coq_interprete
       Instruct(SWITCH) {
         uint32_t sizes = *pc++;
         print_instr("SWITCH");
-        print_int(sizes & 0xFFFFFF);
         if (Is_block(accu)) {
           long index = Tag_val(accu);
           if (index == Closure_tag) index = 0;
           print_instr("block");
           print_lint(index);
-          pc += pc[(sizes & 0xFFFFFF) + index];
+          pc += pc[(sizes >> 8) + index];
         } else {
           long index = Long_val(accu);
           print_instr("constant");
@@ -1985,6 +1984,26 @@ value coq_interprete
           Restore_after_caml_call;
           Handle_potential_exception(accu);
           sp += 1;
+          pc++;
+        } else pc += *pc;
+        Next;
+      }
+
+      Instruct(CHECKCAMLCALL3) {
+        // arity-3 callback, no argument can be an accumulator
+        value arg1;
+        value arg2;
+        print_instr("CHECKCAMLCALL3");
+        if (!Is_accu(accu) && !Is_accu(sp[0]) && !Is_accu(sp[1])) {
+          pc++;
+          arg1 = sp[0];
+          arg2 = sp[1];
+          Setup_for_caml_call;
+          print_int(*pc);
+          accu = caml_callback3_exn(Field(coq_global_data, *pc), accu, arg1, arg2);
+          Restore_after_caml_call;
+          Handle_potential_exception(accu);
+          sp += 2;
           pc++;
         } else pc += *pc;
         Next;

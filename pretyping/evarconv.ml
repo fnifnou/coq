@@ -155,7 +155,7 @@ let flex_kind_of_term flags env evd c sk =
        else Rigid
     | Evar ev ->
        if is_evar_allowed flags (fst ev) then Flexible ev else Rigid
-    | Lambda _ | Prod _ | Sort _ | Ind _ | Int _ | Float _ | Array _ -> Rigid
+    | Lambda _ | Prod _ | Sort _ | Ind _ | Int _ | Float _ | String _ | Array _ -> Rigid
     | Construct _ | CoFix _ (* Incorrect: should check only app in sk *) -> Rigid
     | Meta _ -> Rigid
     | Fix _ -> Rigid (* happens when the fixpoint is partially applied (should check it?) *)
@@ -240,12 +240,37 @@ let occur_rigidly flags env evd (evk,_) t =
       (match aux c with
       | Rigid b -> Rigid b
       | _ -> Reducible)
-    | Meta _ | Fix _ | CoFix _ | Int _ | Float _ | Array _ -> Reducible
+    | Meta _ | Fix _ | CoFix _ | Int _ | Float _ | String _ | Array _ -> Reducible
   in
     match aux t with
     | Rigid b -> b
     | Normal b -> b
     | Reducible -> false
+
+type hook = Environ.env -> Evd.evar_map -> ((Names.Constant.t * EConstr.EInstance.t) * EConstr.t list * EConstr.t) -> (EConstr.t * EConstr.t list) -> (Evd.evar_map * Structures.CanonicalSolution.t) option
+
+let all_hooks = ref (CString.Map.empty : hook CString.Map.t)
+
+let register_hook ~name ?(override=false) h =
+  if not override && CString.Map.mem name !all_hooks then
+    CErrors.anomaly ~label:"CanonicalSolution.register_hook"
+      Pp.(str "Hook already registered: \"" ++ str name ++ str "\".");
+  all_hooks := CString.Map.add name h !all_hooks
+
+let active_hooks = Summary.ref ~name:"canonical_solution_hooks_hacked" ([] : string list)
+
+let deactivate_hook ~name =
+  active_hooks := List.filter (fun s -> not (String.equal s name)) !active_hooks
+
+let activate_hook ~name =
+  assert (CString.Map.mem name !all_hooks);
+  deactivate_hook ~name;
+  active_hooks := name :: !active_hooks
+
+let apply_hooks env sigma proj pat =
+  List.find_map (fun name ->
+    try CString.Map.get name !all_hooks env sigma proj pat
+    with e when CErrors.noncritical e -> anomaly Pp.(str "CS hook " ++ str name ++ str " exploded")) !active_hooks
 
 (* [check_conv_record env sigma (t1,stack1) (t2,stack2)] tries to decompose
    the problem (t1 stack1) = (t2 stack2) into a problem
@@ -270,7 +295,7 @@ let occur_rigidly flags env evd (evk,_) t =
 let check_conv_record env sigma (t1,sk1) (t2,sk2) =
    (* I only recognize ConstRef projections since these are the only ones for which
       I know how to obtain the number of parameters. *)
-  let (proji, _), arg =
+  let (proji, u), arg =
     match Termops.global_app_of_constr sigma t1 with
     | (Names.GlobRef.ConstRef proji, u), arg -> (proji, u), arg
     | _ -> raise Not_found in
@@ -304,14 +329,20 @@ let check_conv_record env sigma (t1,sk1) (t2,sk2) =
   let (pat, _, args2') = try ValuePattern.of_constr sigma h2 with | DestKO -> (Default_cs, None, []) in
   let (sigma, solution), sk2_effective =
      (* N.B. In the `Proj` case, the subject needs to be added in args2. *)
-    try
-      let () = if pat = Default_cs then raise Not_found else () in
-      let (sigma, solution) = CanonicalSolution.find env sigma (Names.GlobRef.ConstRef proji, pat) in
-      if List.length solution.cvalue_arguments = k + (List.length args2') then (sigma, solution), args2' @ args2 else raise Not_found
-    with | Not_found ->
-      let (sigma, solution) = CanonicalSolution.find env sigma (Names.GlobRef.ConstRef proji, Default_cs) in
-      (* We have to drop the arguments args2 because the default solution does not have them. *)
-      if List.length solution.cvalue_arguments = 0 then (sigma, solution), [] else raise Not_found
+    try begin
+      try
+         let () = if pat = Default_cs then raise Not_found else () in
+         let (sigma, solution) = CanonicalSolution.find env sigma (Names.GlobRef.ConstRef proji, pat) in
+         if List.length solution.cvalue_arguments = k + (List.length args2') then (sigma, solution), args2' @ args2 else raise Not_found
+       with | Not_found ->
+         let (sigma, solution) = CanonicalSolution.find env sigma (Names.GlobRef.ConstRef proji, Default_cs) in
+         (* We have to drop the arguments args2 because the default solution does not have them. *)
+         if List.length solution.cvalue_arguments = 0 then (sigma, solution), [] else raise Not_found
+      end
+    with | Not_found -> (* If we find no solution, we ask the hook if it has any. *)
+      match (apply_hooks env sigma ((proji, u), params1, c1) (t2, args2)) with
+      | Some r -> r, args2' @ args2
+      | None -> raise Not_found
   in
   let t2 = Stack.zip sigma (h2, (Stack.append_app_list args2 Stack.empty)) in
   let h, _ = decompose_app sigma solution.body in
@@ -594,7 +625,7 @@ let infer_conv_noticing_evars ~pb ~ts env sigma t1 t2 =
     v
   in
   let evar_handler = { (Evd.evar_handler sigma) with evar_expand } in
-  let conv pb ~l2r sigma = Conversion.generic_conv pb ~l2r ~evars:evar_handler in
+  let conv = { genconv = fun pb ~l2r sigma -> Conversion.generic_conv pb ~l2r ~evars:evar_handler } in
   match infer_conv_gen conv ~catch_incon:false ~pb ~ts env sigma t1 t2 with
   | Some sigma -> Some (Success sigma)
   | None ->
@@ -1021,7 +1052,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) flags env evd pbty
              only if necessary) or the second argument is potentially
              usable as a canonical projection or canonical value *)
           let rec is_unnamed (hd, args) = match EConstr.kind i hd with
-            | (Var _|Construct _|Ind _|Const _|Prod _|Sort _|Int _ |Float _|Array _) ->
+            | (Var _|Construct _|Ind _|Const _|Prod _|Sort _|Int _ |Float _|String _|Array _) ->
               Stack.not_purely_applicative args
             | (CoFix _|Meta _|Rel _)-> true
             | Evar _ -> Stack.not_purely_applicative args
@@ -1141,6 +1172,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) flags env evd pbty
         | Construct _, Construct _
         | Int _, Int _
         | Float _, Float _
+        | String _, String _
         | Array _, Array _ ->
           rigids env evd sk1 term1 sk2 term2
 
@@ -1218,7 +1250,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) flags env evd pbty
           | None -> UnifFailure (evd,NotSameHead)
           end
 
-        | (Ind _ | Sort _ | Prod _ | CoFix _ | Fix _ | Rel _ | Var _ | Const _ | Int _ | Float _ | Array _ | Evar _ | Lambda _), _ ->
+        | (Ind _ | Sort _ | Prod _ | CoFix _ | Fix _ | Rel _ | Var _ | Const _ | Int _ | Float _ | String _ | Array _ | Evar _ | Lambda _), _ ->
           UnifFailure (evd,NotSameHead)
         | _, (Ind _ | Sort _ | Prod _ | CoFix _ | Fix _ | Rel _ | Var _ | Const _ | Int _ | Array _ | Evar _ | Lambda _) ->
           UnifFailure (evd,NotSameHead)
@@ -1820,8 +1852,14 @@ let error_cannot_unify env evd pb ?reason t1 t2 =
     ?loc:(loc_of_conv_pb evd pb) env
     evd ?reason (t1, t2)
 
-let check_problems_are_solved env evd =
-  match snd (extract_all_conv_pbs evd) with
+let check_problems_are_solved ?evars env evd =
+  let has_evar (pbty,_,t1,t2) =
+    match evars with
+    | None -> true
+    | Some evars ->
+      (try Evar.Set.mem (head_evar evd t1) evars with NoHeadEvar -> false) ||
+      (try Evar.Set.mem (head_evar evd t2) evars with NoHeadEvar -> false) in
+  match snd (extract_conv_pbs evd has_evar) with
   | (pbty,env,t1,t2) as pb::_ -> error_cannot_unify env evd pb t1 t2
   | _ -> ()
 

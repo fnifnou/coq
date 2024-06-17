@@ -469,9 +469,27 @@ let () =
   define "string_app" (bytes @-> bytes @-> ret bytes) @@ fun a b ->
   Bytes.concat Bytes.empty [a; b]
 
+let () =
+  define "string_sub" (bytes @-> int @-> int @-> tac bytes) @@ fun s off len ->
+  try return (Bytes.sub s off len) with Invalid_argument _ -> throw err_outofbounds
+
 let () = define "string_equal" (bytes @-> bytes @-> ret bool) Bytes.equal
 
 let () = define "string_compare" (bytes @-> bytes @-> ret int) Bytes.compare
+
+(** Pstring *)
+
+let () =
+  define "pstring_max_length" (ret uint63) Pstring.max_length;
+  define "pstring_to_string" (pstring @-> ret string) Pstring.to_string;
+  define "pstring_of_string" (string @-> ret (option pstring)) Pstring.of_string;
+  define "pstring_make" (uint63 @-> uint63 @-> ret pstring) Pstring.make;
+  define "pstring_length" (pstring @-> ret uint63) Pstring.length;
+  define "pstring_get" (pstring @-> uint63 @-> ret uint63) Pstring.get;
+  define "pstring_sub" (pstring @-> uint63 @-> uint63 @-> ret pstring) Pstring.sub;
+  define "pstring_cat" (pstring @-> pstring @-> ret pstring) Pstring.cat;
+  define "pstring_equal" (pstring @-> pstring @-> ret bool) Pstring.equal;
+  define "pstring_compare" (pstring @-> pstring @-> ret int) Pstring.compare
 
 (** Terms *)
 
@@ -586,8 +604,10 @@ let () =
     v_blk 17 [|Tac2ffi.of_uint63 n|]
   | Float f ->
     v_blk 18 [|Tac2ffi.of_float f|]
+  | String s ->
+    v_blk 19 [|Tac2ffi.of_pstring s|]
   | Array(u,t,def,ty) ->
-    v_blk 19 [|
+    v_blk 20 [|
       of_instance u;
       Tac2ffi.of_array Tac2ffi.of_constr t;
       Tac2ffi.of_constr def;
@@ -675,7 +695,10 @@ let () =
   | (18, [|f|]) ->
     let f = Tac2ffi.to_float f in
     EConstr.mkFloat f
-  | (19, [|u;t;def;ty|]) ->
+  | (19, [|s|]) ->
+    let s = Tac2ffi.to_pstring s in
+    EConstr.mkString s
+  | (20, [|u;t;def;ty|]) ->
     let t = Tac2ffi.to_array Tac2ffi.to_constr t in
     let def = Tac2ffi.to_constr def in
     let ty = Tac2ffi.to_constr ty in
@@ -1329,8 +1352,8 @@ let tag_map tag m = Tac2ffi.repr_of map_repr (TaggedMap (tag,m))
 
 module type MapType = sig
   (* to have less boilerplate we use S.elt rather than declaring a toplevel type t *)
-  module S : CSig.SetS
-  module M : CMap.ExtS with type key = S.elt and module Set := S
+  module S : CSig.USetS
+  module M : CMap.UExtS with type key = S.elt and module Set := S
   type valmap
   val valmap_eq : (valmap, valexpr M.t) Util.eq
   val repr : S.elt Tac2ffi.repr

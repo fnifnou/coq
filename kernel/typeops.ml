@@ -25,6 +25,7 @@ open Type_errors
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
 
+exception NotConvertible
 exception NotConvertibleVect of int
 
 let conv_leq env x y = default_conv CUMUL env x y
@@ -32,8 +33,9 @@ let conv_leq env x y = default_conv CUMUL env x y
 let conv_leq_vecti env v1 v2 =
   Array.fold_left2_i
     (fun i _ t1 t2 ->
-      try conv_leq env t1 t2
-      with NotConvertible -> raise (NotConvertibleVect i))
+      match conv_leq env t1 t2 with
+      | Result.Ok () -> ()
+      | Result.Error () -> raise (NotConvertibleVect i))
     ()
     v1
     v2
@@ -188,14 +190,20 @@ let check_hyps_inclusion env ?evars c sign =
       let id = NamedDecl.get_id d1 in
       try
         let d2 = lookup_named id env in
-        conv env (get_type d2) (get_type d1);
+        let () = match conv env (get_type d2) (get_type d1) with
+        | Result.Ok () -> ()
+        | Result.Error () -> raise NotConvertible
+        in
         (match d2,d1 with
         | LocalAssum _, LocalAssum _ -> ()
         | LocalAssum _, LocalDef _ ->
             (* This is wrong, because we don't know if the body is
                needed or not for typechecking: *) ()
         | LocalDef _, LocalAssum _ -> raise NotConvertible
-        | LocalDef (_,b2,_), LocalDef (_,b1,_) -> conv env b2 b1);
+        | LocalDef (_,b2,_), LocalDef (_,b1,_) ->
+          match conv env b2 b1 with
+          | Result.Ok () -> ()
+          | Result.Error () -> raise NotConvertible);
       with Not_found | NotConvertible | Option.Heterogeneous ->
         error_reference_variables env id c)
     sign
@@ -262,8 +270,8 @@ let type_of_apply env func funt argsv argstv =
         let argt = argstv.(i) in
         let c1 = term_of_fconstr c1 in
         begin match conv_leq env argt c1 with
-        | () -> apply_rec (i+1) (mk_clos (CClosure.usubs_cons (inject arg) e) c2)
-        | exception NotConvertible ->
+        | Result.Ok () -> apply_rec (i+1) (mk_clos (CClosure.usubs_cons (inject arg) e) c2)
+        | Result.Error () ->
           error_cant_apply_bad_type env
             (i+1,c1,argt)
             (make_judge func funt)
@@ -288,8 +296,8 @@ let type_of_parameters env ctx u argsv argstv =
     let argt = argstv.(i) in
     let t = esubst u subst t in
     begin match conv_leq env argt t with
-    | () -> apply_rec (i + 1) (Esubst.subs_cons (Vars.make_substituend arg) subst) ctx
-    | exception NotConvertible ->
+    | Result.Ok () -> apply_rec (i + 1) (Esubst.subs_cons (Vars.make_substituend arg) subst) ctx
+    | Result.Error () ->
       error_actual_type env (make_judge arg argt) t
     end
   | LocalDef (_, b, _) :: ctx ->
@@ -304,6 +312,9 @@ let type_of_prim_type _env u (type a) (prim : a CPrimitives.prim_type) = match p
     assert (UVars.Instance.is_empty u);
     Constr.mkSet
   | CPrimitives.PT_float64 ->
+    assert (UVars.Instance.is_empty u);
+    Constr.mkSet
+  | CPrimitives.PT_string ->
     assert (UVars.Instance.is_empty u);
     Constr.mkSet
   | CPrimitives.PT_array ->
@@ -323,6 +334,11 @@ let type_of_float env =
   match env.retroknowledge.Retroknowledge.retro_float64 with
   | Some c -> UnsafeMonomorphic.mkConst c
   | None -> CErrors.user_err Pp.(str"The type float must be registered before this construction can be typechecked.")
+
+let type_of_string env =
+  match env.retroknowledge.Retroknowledge.retro_string with
+  | Some c -> UnsafeMonomorphic.mkConst c
+  | None -> CErrors.user_err Pp.(str"The type string must be registered before this construction can be typechecked.")
 
 let type_of_array env u =
   assert (UVars.Instance.length u = (0,1));
@@ -380,8 +396,7 @@ let type_of_product env _name s1 s2 =
 *)
 
 let check_cast env c ct k expected_type =
-  try
-    match k with
+  let ans = match k with
     | VMcast ->
       Vconv.vm_conv CUMUL env ct expected_type
     | DEFAULTcast ->
@@ -389,7 +404,10 @@ let check_cast env c ct k expected_type =
     | NATIVEcast ->
       let sigma = Genlambda.empty_evars env in
       Nativeconv.native_conv CUMUL sigma env ct expected_type
-  with NotConvertible ->
+  in
+  match ans with
+  | Result.Ok () -> ()
+  | Result.Error () ->
     error_actual_type env (make_judge c ct) expected_type
 
 let judge_of_int env i =
@@ -397,6 +415,9 @@ let judge_of_int env i =
 
 let judge_of_float env f =
   make_judge (Constr.mkFloat f) (type_of_float env)
+
+let judge_of_string env s =
+  make_judge (Constr.mkString s) (type_of_string env)
 
 let judge_of_array env u tj defj =
   let def = defj.uj_val in
@@ -484,8 +505,9 @@ let check_branch_types env (_mib, mip) ci u pms c _ct lft (pctx, p) =
     let indices = List.lastn mip.mind_nrealargs retargs in
     let subst = instantiate (List.rev pctx) (indices @ [cstr]) (Esubst.subs_shft (nargs, Esubst.subs_id 0)) in
     let expbrt = Vars.esubst Vars.lift_substituend subst p in
-    try conv_leq brenv brt expbrt
-    with NotConvertible -> raise (NotConvertibleBranch (i, brctx, brt, expbrt))
+    match conv_leq brenv brt expbrt with
+    | Result.Ok () -> ()
+    | Result.Error () -> raise (NotConvertibleBranch (i, brctx, brt, expbrt))
   in
   try Array.iteri iter lft
   with NotConvertibleBranch (i, brctx, brt, expbrt) ->
@@ -512,7 +534,11 @@ let should_invert_case env r ci =
 let type_case_scrutinee env (mib, _mip) (u', largs) u pms (pctx, p) c =
   let (params, realargs) = List.chop mib.mind_nparams largs in
   (* Check that the type of the scrutinee is <= the expected argument type *)
-  let () = try Array.iter2 (fun p1 p2 -> Conversion.conv ~l2r:true env p1 p2) (Array.of_list params) pms
+  let iter p1 p2 = match Conversion.conv ~l2r:true env p1 p2 with
+  | Result.Ok () -> ()
+  | Result.Error () -> raise NotConvertible
+  in
+  let () = try Array.iter2 iter (Array.of_list params) pms
     with NotConvertible -> raise Type_errors.(TypeError (env,IllFormedCaseParams))
   in
   (* We use l2r:true for compat with old versions which used CONV with arguments
@@ -729,7 +755,10 @@ let rec execute env cstr =
             let args = Array.append pms indices in
             let ct' = mkApp (mkIndU (ci.ci_ind,u), args) in
             let (ct', _) : constr * Sorts.t = execute_is_type env ct' in
-            let () = conv_leq env ct ct' in
+            let () = match conv_leq env ct ct' with
+            | Result.Ok () -> ()
+            | Result.Error () -> error_bad_invert env (* TODO: more informative message *)
+            in
             let _, args' = decompose_app ct' in
             if args == args' then iv
             else CaseInvert {indices=Array.sub args' (Array.length pms) (Array.length indices)}
@@ -805,6 +834,7 @@ let rec execute env cstr =
     (* Primitive types *)
     | Int _ -> cstr, type_of_int env
     | Float _ -> cstr, type_of_float env
+    | String _ -> cstr, type_of_string env
     | Array(u,t,def,ty) ->
       (* ty : Type@{u} and all of t,def : ty *)
       let ulev = match UVars.Instance.to_array u with
@@ -900,7 +930,10 @@ let check_context env rels =
       | LocalDef (x,bd,ty) ->
         let j1 = infer env bd in
         let jty = infer_type env ty in
-        conv_leq env j1.uj_type ty;
+        let () = match conv_leq env j1.uj_type ty with
+        | Result.Ok () -> ()
+        | Result.Error () -> error_actual_type env j1 ty
+        in
         let x = check_let_annot env jty.utj_type x j1.uj_val jty.utj_val in
         push_rel d env, LocalDef (x,j1.uj_val,jty.utj_val) :: rels)
     rels ~init:(env,[])
@@ -956,11 +989,14 @@ let type_of_prim_const env _u c =
   match c with
   | CPrimitives.Arraymaxlength ->
     int_ty ()
+  | CPrimitives.Stringmaxlength ->
+    int_ty ()
 
 let type_of_prim env u t =
   let module UM = UnsafeMonomorphic in
   let int_ty () = type_of_int env in
   let float_ty () = type_of_float env in
+  let string_ty () = type_of_string env in
   let array_ty u a = mkApp(type_of_array env u, [|a|]) in
   let bool_ty () =
     match env.retroknowledge.Retroknowledge.retro_bool with
@@ -996,6 +1032,7 @@ let type_of_prim env u t =
   let tr_prim_type (tr_type : ind_or_type -> constr) (type a) (ty : a prim_type) (t : a) = match ty with
     | PT_int63 -> int_ty t
     | PT_float64 -> float_ty t
+    | PT_string -> string_ty t
     | PT_array -> array_ty (fst t) (tr_type (snd t))
   in
   let tr_ind (tr_type : ind_or_type -> constr) (type t) (i : t prim_ind) (a : t) = match i, a with

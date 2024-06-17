@@ -84,7 +84,8 @@ let is_rec names =
   let rec lookup names gt =
     match DAst.get gt with
     | GVar id -> check_id id names
-    | GRef _ | GEvar _ | GPatVar _ | GSort _ | GHole _ | GGenarg _ | GInt _ | GFloat _ ->
+    | GRef _ | GEvar _ | GPatVar _ | GSort _ | GHole _ | GGenarg _
+    | GInt _ | GFloat _ | GString _ ->
       false
     | GCast (b, _, _) -> lookup names b
     | GRec _ -> CErrors.user_err (Pp.str "GRec not handled")
@@ -163,7 +164,7 @@ let recompute_binder_list fixpoint_exprl =
       fixpoint_exprl
   in
   let (_, _, _, typel), _, ctx, _ =
-    ComFixpoint.interp_fixpoint ~check_recursivity:false ~cofix:false fixl
+    ComFixpoint.interp_recursive ~check_recursivity:false ~cofix:false fixl
   in
   let constr_expr_typel =
     with_full_print
@@ -415,7 +416,8 @@ let register_struct is_rec fixpoint_exprl =
     in
     (None, evd, List.rev rev_pconstants)
   | _ ->
-    ComFixpoint.do_fixpoint ~poly:false fixpoint_exprl;
+    let p = ComFixpoint.do_fixpoint ~poly:false fixpoint_exprl in
+    assert (Option.is_empty p);
     let evd, rev_pconstants =
       List.fold_left
         (fun (evd, l) {Vernacexpr.fname} ->

@@ -215,15 +215,22 @@ definition is the following:
 More generally, it is required that notations are explicitly factorized on the
 left. See the next section for more about factorization.
 
+.. _NotationFactorization:
+
 Simple factorization rules
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Coq extensible parsing is performed by *Camlp5* which is essentially a LL1
 parser: it decides which notation to parse by looking at tokens from left to right.
 Hence, some care has to be taken not to hide already existing rules by new
-rules. Some simple left factorization work has to be done. Here is an example.
+rules. Indeed notations with a common prefix but different levels can
+interfere with one another, making some of them unusable. For instance, a notation ``x < y`` with ``x``
+and ``y`` at level 69 would be broken by another rule that puts
+``y`` at another level, like ``x < y < z`` with ``x`` at level 69 and ``y``
+at level 200. To avoid such issues, you should left factorize rules, that is ensure
+that common prefixes use the samel levels.
 
-.. coqtop:: all
+.. coqtop:: in
 
    Notation "x < y" := (lt x y) (at level 70).
    Fail Notation "x < y < z" := (x < y /\ y < z) (at level 70).
@@ -244,6 +251,16 @@ For the sake of factorization with Coq predefined rules, simple rules
 have to be observed for notations starting with a symbol, e.g., rules
 starting with “\ ``{``\ ” or “\ ``(``\ ” should be put at level 0. The list
 of Coq predefined notations can be found in the chapter on :ref:`thecoqlibrary`.
+
+.. warn:: Closed notations (i.e. starting and ending with a terminal symbol) should usually be at level 0 (default).
+   :name: closed-notation-not-level-0
+
+   It is usually better to put closed notations, that is the ones starting and ending with a terminal symbol, at level 0.
+
+.. warn:: Postfix notations (i.e. starting with a nonterminal symbol and ending with a terminal symbol) should usually be at level 1 (default).")
+   :name: postfix-notation-not-level-1
+
+   It is usually better to put postfix notations, that is the ones ending with a terminal symbol, at level 1.
 
 .. _UseOfNotationsForPrinting:
 
@@ -435,6 +452,14 @@ Reserving notations
    :token:`syntax_modifier`), it is used by
    default by all subsequent interpretations of the corresponding
    notation. Individual interpretations can override the format.
+
+   .. warn:: Notations "a b" defined at level x and "a c" defined at level y have incompatible prefixes. One of them will likely not work.
+      :name: notation-incompatible-prefix
+
+      The two notations have a common prefix but different levels.
+      The levels of one of the notations should be adjusted to match
+      the other. See :ref:`factorization <NotationFactorization>` for
+      details.
 
 Simultaneous definition of terms and notations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -642,9 +667,9 @@ Displaying information about notations
          Print Notation "_ mod _".
          Print Notation "x 'mod' y".
 
-         Reserved Notation "/ x /" (at level 0, format "/ x /").
-         Fail Print Notation "/x/".
-         Print Notation "/ x /".
+         Reserved Notation "# x #" (at level 0, format "# x #").
+         Fail Print Notation "#x#".
+         Print Notation "# x #".
 
          Reserved Notation "( x , y , .. , z )" (at level 0).
          Print Notation "( _ , _ , .. , _ )".
@@ -1210,7 +1235,7 @@ Custom entries
    For instance, we may want to define an ad hoc
    parser for arithmetical operations and proceed as follows:
 
-   .. coqtop:: all
+   .. coqtop:: reset all
 
       Inductive Expr :=
       | One : Expr
@@ -2187,6 +2212,8 @@ String notations
             * :n:`Byte.byte -> option @qualid__type`
             * :n:`list Byte.byte -> @qualid__type`
             * :n:`list Byte.byte -> option @qualid__type`
+            * :n:`PrimString.string -> @qualid__type`
+            * :n:`PrimString.string -> option @qualid__type`
 
          The printing function :n:`@qualid__print` should have one of the
          following types:
@@ -2195,6 +2222,8 @@ String notations
             * :n:`@qualid__type -> option Byte.byte`
             * :n:`@qualid__type -> list Byte.byte`
             * :n:`@qualid__type -> option (list Byte.byte)`
+            * :n:`@qualid__type -> PrimString.string`
+            * :n:`@qualid__type -> option PrimString.string`
 
          When parsing, the application of the parsing function
          :n:`@qualid__parse` to the string will be fully reduced, and universes
@@ -2202,7 +2231,7 @@ String notations
 
          Note that only fully-reduced ground terms (terms containing only
          function application, constructors, inductive type families,
-         sorts, primitive integers, primitive floats, primitive arrays and type
+         sorts, primitive integers, primitive floats, primitive strings, primitive arrays and type
          constants for primitive types) will be considered for printing.
 
       :n:`via @qualid__ind mapping [ {+, @qualid__constant => @qualid__constructor } ]`
@@ -2214,12 +2243,12 @@ String notations
      the given string.  This error is given when the interpretation
      function returns :g:`None`.
 
-   .. exn:: @qualid__parse should go from Byte.byte or (list Byte.byte) to @type or (option @type).
+   .. exn:: @qualid__parse should go from Byte.byte, (list Byte.byte), or PrimString.string to @type or (option @type).
 
      The parsing function given to the :cmd:`String Notation`
      command is not of the right type.
 
-   .. exn:: @qualid__print should go from @type to Byte.byte or (option Byte.byte) or (list Byte.byte) or (option (list Byte.byte)).
+   .. exn:: @qualid__print should go from @type to T or (option T), where T is either Byte.byte, (list Byte.byte), or PrimString.string.
 
      The printing function given to the :cmd:`String Notation`
      command is not of the right type.
@@ -2227,8 +2256,8 @@ String notations
    .. exn:: Unexpected term @term while parsing a string notation.
 
      Parsing functions must always return ground terms, made up of
-     function application, constructors, inductive type families, sorts and primitive
-     integers.  Parsing functions may not return terms containing
+     function application, constructors, inductive type families, sorts, primitive
+     integers and primitive strings.  Parsing functions may not return terms containing
      axioms, bare (co)fixpoints, lambdas, etc.
 
    .. exn:: Unexpected non-option term @term while parsing a string notation.
