@@ -85,6 +85,9 @@ let set_names env l =
     (Id.Set.add id ids, set_name (Name id) d :: l)
   in
   snd (List.fold_right fold l (ids,[]))
+(* b : body et l : list de 
+construit un fun au dessus du context fun (x:A) (y:B) (z:C) => b
+context : suite de declarations *)
 let it_mkLambda_or_LetIn_name env b l = it_mkLambda_or_LetIn b (set_names env l)
 let it_mkProd_or_LetIn_name env b l = it_mkProd_or_LetIn b (set_names env l)
 
@@ -143,6 +146,7 @@ let build_branch_type env sigma dep p cs =
     it_mkProd_or_LetIn base cs.cs_args
 
 let check_valid_elimination env sigma (ind, u as pind) ~dep s =
+  (* verifie dans l'env si les constructeurs du types sont bien definis *)
   let specif = Inductive.lookup_mind_specif env ind in
   let () =
     if dep && not (Inductiveops.has_dependent_elim specif) then

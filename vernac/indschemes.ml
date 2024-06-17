@@ -237,6 +237,7 @@ let declare_one_induction_scheme ?loc ind =
        (InSet, "rec");
        (InSProp, "sind")]
   in
+  (* appelle build_induction_scheme sur les schemes à definir en fonction du type *)
   let elims = List.map (fun (to_kind,dflt_suff) ->
       if from_prop then elim_scheme ~dep:false ~to_kind, Some dflt_suff
       else if depelim then elim_scheme ~dep:true ~to_kind, Some dflt_suff
