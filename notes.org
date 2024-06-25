@@ -1,0 +1,467 @@
+* Scheme
+
+The Scheme command is a high-level tool for generating automatically (possibly mutual) induction principles for given types and sorts. 
+
+** pretyping/indrec.ml
+
+indrec travail sur constr, c est de la compilation un peut hard core.
+
+*Indrec.build_induction_scheme* : construit nat_rect pour tout type inductif (IMPORTANT)
+pour creer des listes d arguments, et des choses comme ca
+
+Vont me donner une idee de la forme des traduction.
+
+#+begin_src ocaml
+Inductive nat : Set :=  O : nat | S : nat -> nat.
+
+Print nat_rect.
+
+nat_rect = 
+fun (P : nat -> Type) (f : P 0) (f0 : forall n : nat, P n -> P (S n)) =>
+fix F (n : nat) : P n :=
+  match n as n0 return (P n0) with
+  | 0 => f
+  | S n0 => f0 n0 (F n0)
+  end
+     : forall P : nat -> Type,
+       P 0 -> (forall n : nat, P n -> P (S n)) -> forall n : nat, P n
+#+end_src
+
+** vernac/Auto_ind_decl.build_beq_scheme
+
+un truc tordu qui est basé sur la parametricité un melange entre les termes et les types (compliqué par rapport à au dessus)
+
+** Debug
+
+#+begin_src ocaml
+Scheme Induction for bool Sort Type.
+Scheme Induction for nat Sort Type.
+(* type_rec_branch, mis_make_case_com, make_rec_branch_arg, *)
+#+end_src
+
+#+begin_src ocaml
+Inductive nat : Set :=
+| O : nat
+| S : nat -> nat.
+#+end_src
+
+#+begin_src bash
+dune exec -- dev/dune-dbg -emacs coqtop
+#+end_src
+
+* Vocabulaire
+
+Gamma |- t : A 
+
+trois partit : 
+- global : pour les def
+- nemcontext : pour les buts avec des variables només
+- 
+
+environement = env
+forall = Prod
+fun = Lambda
+match = Case
+x, y = Var
+x, y = Rel
+App = application
+
+le type des term est abstrait 
+Constr.kind
+
+mkProf
+mkProd
+mkLambda
+mkCase
+mkRel
+
+type inductif potentiellement mutuel, plusieur constructeur, plusieur arg avant le := , apres le := , donc y a des arrays partout
+
+===============================================================
+
+sigma : environemnent variables existencielle
+
+3 types de nom : 
+- inductif,
+- constructeur,
+- constante
+
+pinductif : inductif et niveau univers (laisse tomber le p)
+@cons : application 
+puniverse : polymorphic universe
+eSorts : Type of sorts up-to universe unification. Essentially a wrapper around Sorts.t so that normalization is ensured statically.
+
+===============================================================
+
+record : inductif avec un seul constructeur
+2 manieres : avec projection primitiv ou sans
+match projs with : 
+non : non primitiv
+some : si
+
+* Constr vs. eConstr
+
+kind_of_term === constr
+kind  : constr -> kind_of_term	// et la fonction kind permet de passer de l'un a l'autre constr -> kind_of_term
+mk... : kind_of_term -> constr	// on a toutes les fonction mk....
+
+
+Deux niveaux de terme : 
+     - niveau noyau : Constr.t
+     - niveau hors noyau : EConstr.t (econstr, etypes sont des alias)
+Dans constr on est supposé avoir des terms finis/complet sans sous but, ou les buts du Qed sont resolus.
+Dans econstr on peut avoir plein de variables existentiels (buts) qu on appelle evar.
+
+engine/eConstr.ml	: 
+engine/evd.ml 		: ligne 1676 MiniEConstr 
+
+On a le droit d avoir des variables existancielles et l autre on a pas le droit. abstraction par rappoort au sort et constr et types, par les univers mais on laisse tomber, et le 'r est une extention recente qu on appelle les strict prop mais je laisse tomber.
+
+
+#+begin_src ocaml
+type constr =
+  | Rel       of int
+  | Var       of Id.t
+  | Meta      of metavariable
+  | Evar      of constr pexistential
+  | Sort      of Sorts.t
+  | Cast      of constr * cast_kind * constr
+  | Prod      of (Name.t,Sorts.relevance) pbinder_annot * constr * constr
+  | Lambda    of (Name.t,Sorts.relevance) pbinder_annot * constr * constr
+  | LetIn     of (Name.t,Sorts.relevance) pbinder_annot * constr * constr * constr
+  | App       of constr * constr array
+  | Const     of (Constant.t * Univ.Instance.t)
+  | Ind       of (inductive * Univ.Instance.t)
+  | Construct of (constructor * Univ.Instance.t)
+  | Case      of case_info * 
+		Univ.Instance.t * 
+		constr array * 
+		((Name.t,Sorts.relevance) Context.pbinder_annot array * constr) * Sorts.relevance *
+		CaseInvert of { indices : constr array }* 
+		constr * 
+		((Name.t,Sorts.relevance) Context.pbinder_annot array * constr) array
+  | Fix       of (constr, constr, Sorts.relevance) pfixpoint
+  | CoFix     of (constr, constr, Sorts.relevance) pcofixpoint
+  | Proj      of Projection.t * Sorts.relevance * constr
+  | Int       of Uint63.t
+  | Float     of Float64.t
+  | Array     of Univ.Instance.t * constr array * constr * constr
+#+end_src
+
+derouler le case avec les p....
+
+* Parser
+
+- *g_vernac.mlg* : là où on definit les regles de grammaires de coq
+.mlg : le ficier est pre processé par un truc maison coqpp
+pas une grammaire LR mais LL du style camlp5
+search "scheme" : lignes 280-290 : on va factoriser ces lignes pour le rendre plus generaliste
+- *vernac_control* : defini l entree de tout se au on peut faire avec une commande.
+vernac est la grammaire d une commande, 
+
+* Derives
+
+Plusieur formes de derives : grep register_derive (de ederive.ml)
+derive noConfusion, etc. 
+
+- *g_equations.mlg*
+search Scheme : LIST1 veut dire list non vide 
+les trucs a droite vernac... c est des arbres de syntaxes des commmandes qui sont defini dans vernac/expr.mli
+les commandes sont interpreté dans vernacentries.ml
+- *ederive.ml* (equation) : fonctionne avec une sorte de table de derive
+
+** Debug
+
+#+begin_src bash
+$ make world
+$ make ci-equations
+#+end_src
+
+il va installer dans un repertoire _build/install/default/lib/coq/user-contrib/Equations
+a partir de la faire cd dans equation
+
+exec coq de l archive : 
+#+begin_src bash
+$ rlwrap dune exec coqtop
+$ dune exec coqide
+#+end_src
+
+depuis coq : 
+#+begin_src ocaml
+From Equations Require Import Equations.
+
+Equations neg (b : bool) : bool :=
+neg true := false ;
+neg false := true.
+#+end_src
+
+* But final
+
+On va travailer sur /do_scheme/ et l'ettendre pour pouvoir implementer des schemas de equation
+
+- indscheme : do_scheme et do_scheme_equality
+une sorte de wrapper intermediaire
+ils doivent etre generaliser avec un mecanisme d enregistrer des nouveaux schemas et un do_scheme plus generaliste 
+
+Reverse engineer many details by comparing the .mlg input file with the .ml generated by coqpp.
+
+* Rendez-vous
+** 1er rdv
+
+- [X] Qu'est-ce qu'un 'a puniverse ?
+     -> Je n'ai pas besoin de comprendre
+- [ ] (Constr.t, Constr.t, Sorts.relevance) Context.Rel.Declaration.pt list : environement local ?
+- [ ] Qu est ce qu un inductive_family def dans pretyping/inductivops et utilisé dans la fonction mrec de indrec.ml
+- [X] Quelle est la forme du type inductif en entrée
+- [X] Quelle est la forme de la fonction nat_rect en sortie
+
+- [X] Dans le fichier indrec ligne 455 la fonction make_one_rec : verrifier à quoi correspond p et donc le tableau listdepkind.
+     -> Ce tableau correspond a la list des types inductifs mutuels avec des information tels que ...
+
+*** Réponses 
+
+Ce fichier construit un eliminateur a partir du fix et du match (case)
+comme rect a partir des composantes fix et match
+
+drapeau sort : savoir si dans sort ou dans set
+drapeau dep : est ce de la forme dercté donc avec dependance
+
+it_mkLambda_or_LetIn_name : prend un ensemble de variable et construit un fun
+prendre un contexte et le transformer par un fun
+
+it_mkProd : meme chose mais avec un forall
+
+** 2eme rdv
+
+- [X] <abstr> dans OCaml debugger
+- [ ] (Names.Projection.Repr.t * Sorts.relevance) array option - indrec.ml ligne 214 match projs with 
+
+** 3eme rdv
+
+1. Module Pcoq
+   Global nonterminals are declared in Pcoq
+   All the *.mlg files include open Pcoq
+
+2. Je n'ai pas comprit cette construction : Coq-Equations/doc/equations_intro.v
+   ligne 222
+   #+begin_src
+   Equations equal (n m : nat) : { n = m } + { n <> m } :=
+   equal O O := left eq_refl ;
+   equal (S n) (S m) with equal n m := {
+     equal (S n) (S ?(n)) (left eq_refl) := left eq_refl ;
+     equal (S n) (S m) (right p) := right _ } ;
+   equal x y := right _.
+   #+end_src
+   ligne 306
+   #+begin_src
+   Equations eqt {A} (x y z : A) (p : x = y) (q : y = z) : x = z :=
+   eqt x ?(x) ?(x) eq_refl eq_refl := eq_refl.
+   #+end_src 
+   
+   -> REPONSE : The [?(x)] notation is essentially denoting that the pattern is not a candidate for refinement, as it is determined by another pattern.
+defini une fonction
+
+3. PROBLEME PLUGIN : PARFOIS CA LMARCHE PARFOIS NON, EST CE QUE C EST UN BREAKPOINT QUI MARCHE PAS
+
+* Solo 1
+
+- [X] vernac/indschemes.ml : interpretation de commmmande pour construir les scheme, haut niveau utilisateur
+- [X] pretyping/indrec : plus niveau fondement compilation
+
+
+Construisent les schemes : 
+- [ ] Auto_ind_decl (construit des schemats booleans : comparaisons recurcive, etc)
+- [X] Eqschemes (compilation, commme indrec mais pour des lemmes de reecriture : symetrie)
+- [X] Elimschemes (intermediere au dessus de indrec)
+
+- [ ] plugin equation : code et doc
+- [ ] doc de derive (equivalent de scheme)
+
+** Travail solo
+
+tactics/ind_tables : je suis tombé plusieurs fois sur ce fichier
+define_individual_scheme
+Main functions to register a scheme builder
+
+dans indschemes lignes 290 et 312 : Hipattern.is_inductive_equality
+cela veut dire que l'on fait tout ca seulement si il y a 1 seul mutually inductif
+
+ligne 386 de indschemes.ml : Typeops.type_of_global_in_context
+kernel/uVars.mli : AbstractContext
+comparé à un evar_map quelle est la difference ?
+
+* Solo 2
+
+- [X] Se remettre au parsing
+- [X] coqpp et .mlg files
+- [X] Jouer un petit peut avec les differentes variantes de derive de equation
+- [ ] indscheme : do_scheme et do_scheme_equality
+- [ ] (deux autres pluggin : elpi et paramcoq)
+
+- [X] Se familiariser avec elpi : [[https://lpcic.github.io/coq-elpi/tutorial_elpi_lang.html][Tutorial on the Elpi programming language]]
+- [ ] make ci-elpi et aller voir les schema et essayer des exemples (se concentrer sur std)
+Comme source s'aider de test_derive
+et du readme : https://github.com/LPCIC/coq-elpi/blob/master/apps/derive/README.md
+voir si des schemes de elpi et equations font la meme chose
+ind, rect de coq marchent bien pour des types non mutuels et non imbriqué mais parmcoq et elpi le font
+- [ ] Eventuellement ecrir à l'auteur pour lui demander si y a une doc qui recensse tout ca.
+
+- [ ] Article qui decrit comment faire des schema d induction plus parametrique comme indrec mais qui marche avec mutuel et imbriqué (appelé container)
+https://drops.dagstuhl.de/storage/00lipics/lipics-vol141-itp2019/LIPIcs.ITP.2019.29/LIPIcs.ITP.2019.29.pdf
+techniques à la pointe de l'actualité, aller voir la section 3
+prend un shema inductif sur A en arg pour une plus grand generalité
+
+- [ ] Questions de design, auqelle syntaxe on utilise,
+trouver dans le code de equation la fonction d entree pour derive, du meme genre de mis_make_indrec
+quelle syntaxe externe dans indscheme
+
+** Schemes and Derives
+
+ELIMINATORS : 
+     - x_rect : Type
+     - x_ind : Prop
+     - x_rec : Set
+     - x_sind : SProp
+ 
+COQ SCHEMES : 
+     - Elimination :
+     - Nonrecursive
+     - Elimination :
+     - Case Analysis :
+     - Boolean Equality : does not support container
+     - Decidable Equality : does not support container
+     - Rewriting  :
+     - Combined  : 
+
+EQUATION DERIVES :
+     - Signature : Generate the signature of the inductive (only for dependent inductive types)
+     - NoConfusionHom : generate the homogeneous no-confusion principle for the given family, 
+          montrer que 0 est diff de suc de nimportequoi
+          inclus l'injectivité
+          c est fait d une maniere compliqué général
+     - Subterm : this generates the direct subterm relation for the inductive
+     - Belbeow : 
+     - NoConfusion : generate the no-confusion principle for the given family
+     - EqDec : This derives a decidable equality on C
+     - DependentElimination : 
+
+ELPI DERIVES : 
+    - eqb : 
+    - eqbOK :
+    - induction :
+    - param1 :
+    - param2 :
+    - map :
+    - param1_fonctor :
+    - lens :
+    - lens_laws : 
+
+** Parsing
+
+- CFG Parsing : Context-free grammar
+  -> NOT COQ
+- LL Parsing : Left-to-right Leftmost derivation
+Leftmost derivation : on deroule le terme le plus à gauche
+LL(k) : lookahead k terms to decide 
+LL Conflicts : embiguités
+Pour résoudre ce pb : Left-factoring : 
+- LR Parsing : 
+
+
+[[https://stackoverflow.com/questions/43184660/how-is-coqs-parser-implemented][How is Coq's parser implemented?]]
+Coq indeed features an extensible parser, which TTBOMK is mainly the work of Hugo Herbelin, built on the CAMLP4/CAMLP5 extensible parsing system 
+"the art of extensible parsing is a delicate one"
+
+[[https://github.com/coq/coq/blob/master/dev/doc/parsing.md][parsing.md]]
+     - coqpp : compiles into *.ml files at build time
+     - yacc  : coqpp/coqpp_parse.mly
+     - lex   : coqpp/coqpp_lex.mll 
+
+[[https://ocaml.org/manual/5.2/lexyacc.html][Lexer and parser generators (ocamllex, ocamlyacc)]]
+
+[[https://github.com/coq/coq/blob/master/doc/tools/docgram/README.md][Grammar extraction tool for documentation]]
+-> doc_grammar  : The tool reads all the mlg files and generates fullGrammar
+
+** Equations derive
+
+#+begin_src
+From Equations Require Import Equations.
+
+Equations neg (b : bool) : bool :=
+neg true := false ;
+neg false := true.
+
+Derive Subterm for nat.
+Derive NoConfusionHom for nat.
+#+end_src
+
+
+
+*** Coq-equations/doc/Equations_intro.v
+
+"In the following sections we will show how these ideas generalize to more complex types and definitions involving dependencies, overlapping clauses and recursion."
+
+The real power of with however comes when it is used with dependent types.
+
+**** Derived notions : ligne 367
+
+[[https://raw.githubusercontent.com/mattam82/Coq-Equations/master/doc/equations.pdf][Equations 1.3beta2 Reference Manual]]
+Search : Derive
+
+** Elpi derive
+
+[[https://github.com/LPCIC/coq-elpi/blob/master/apps/derive/README.md][coq-elpi/apps/derive/README.md]]
+
+
+-> The first problem is that the standard induction principles generated by Coq, as shown before, are too weak. In order to strengthen them one needs quite some extra boilerplate, such as the derivation of the unary parametricity translation of the data types involved.
+-> The second reason is that termination checking is purely syntactic in Coq: in order to check that the induction hypothesis is applied to a smaller term, Coq may need to unfold all theorems involved in the proof. This forces proofs to be *transparent* that, in turn, breaks modularity:
+A statement is no more a contract, changing its proof may impact users
+
+Ameliorer tout ca en utilisant les Fix ety les match with qui eux fonctionnent tres bien sur tous les types inductifs.
+
+De base : 
+#+begin_src
+Inductive rtree A : Type :=
+| Leaf (a : A)
+| Node (l : list (rtree A)).
+
+(* associated induction principle is the following one *)
+
+Lemma rtree_ind : ∀ A (P : rtree A → U),
+  (∀ a : A, P (Leaf A a)) →
+  (∀ l : list (rtree A), P (Node A l)) →
+  ∀ t : rtree A, P t.
+#+end_src
+Lacks any induction hypotheses on (the element of) l while one would expect P to hold on each and every subtree.
+Even a very basic recursive program such as an equality test cannot be proved correct using this induction principle.
+
+In order to strengthen them one needs quite some extra boilerplate, such as the *derivation of the unary parametricity translation* of the data types involved
+
+Page 6 :
+#+begin_src 
+Lemma nat_eq_correct : ∀ n, is_nat n → eq_axiom nat nat_eq n :=
+   nat_induction (eq_axiom nat nat_eq) PO PS.
+#+end_src
+
+AU FINAL : 
+on essaye de creer une correspondance entre un type T et la fonction is_T.
+cela nous permet de creer des meilleurs shemas d'inductions surtout pour les types inductifs avec contaainer.
+Mais cela revient à "mettre la poussièere sous le tapis" sans changé la maniere dont coq verifie la terminaison.
+Cela a à voir avec les "Transparent" vs. "Opac" proofs.
+
+** Questions
+
+1) Qu'est se au'un "container" dans "...Scheme Equality and decide equality. The former is fully automatic but is unfortunately very limited, for example it does not support containers."
+   J'ai comprit que une liste est un container simple.
+       -> 
+
+2) 
+
+3) 
+
+
+
+
+
+
+
