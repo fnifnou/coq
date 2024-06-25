@@ -45,7 +45,7 @@ val new_evar :
   ?abstract_arguments:Abstraction.t -> ?candidates:constr list ->
   ?naming:intro_pattern_naming_expr ->
   ?typeclass_candidate:bool ->
-  ?principal:bool -> ?hypnaming:naming_mode ->
+  ?hypnaming:naming_mode ->
   env -> evar_map -> types -> evar_map * EConstr.t
 
 (** Alias of {!Evd.new_pure_evar} *)
@@ -55,7 +55,6 @@ val new_pure_evar :
   ?abstract_arguments:Abstraction.t -> ?candidates:constr list ->
   ?name:Id.t ->
   ?typeclass_candidate:bool ->
-  ?principal:bool ->
   named_context_val -> evar_map -> types -> evar_map * Evar.t
 
 (** Create a new Type existential variable, as we keep track of
@@ -63,17 +62,13 @@ val new_pure_evar :
 val new_type_evar :
   ?src:Evar_kinds.t Loc.located -> ?filter:Filter.t ->
   ?naming:intro_pattern_naming_expr ->
-  ?principal:bool -> ?hypnaming:naming_mode ->
+  ?hypnaming:naming_mode ->
   env -> evar_map -> rigid ->
   evar_map * (constr * ESorts.t)
 
 val new_Type : ?rigid:rigid -> evar_map -> evar_map * constr
 
 (** {6 Unification utils} *)
-
-(** [head_evar c] returns the head evar of [c] if any *)
-exception NoHeadEvar
-val head_evar : evar_map -> constr -> Evar.t (** may raise NoHeadEvar *)
 
 (* Expand head evar if any *)
 val whd_head_evar :  evar_map -> constr -> constr

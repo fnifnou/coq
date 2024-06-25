@@ -26,7 +26,8 @@
   The release manager is the person responsible for merging PRs that target the release branch and backporting appropriate PRs (mostly safe bug fixes, user message improvements and documentation updates) that are merged into `master`.
 - [ ] Pin the versions of libraries and plugins in [`dev/ci/ci-basic-overlay.sh`](../ci/ci-basic-overlay.sh) to use commit hashes. You can use the [`dev/tools/pin-ci.sh`](../tools/pin-ci.sh) script to do this semi-automatically.
 - [ ] In a PR on `master` to be backported, add a new link to the `'versions'` list of the refman (in `html_context` in [`doc/sphinx/conf.py`](../../doc/sphinx/conf.py)).
-- [ ] Ping `@Zimmi48` and `@erikmd` to set up the infrastructure to have alpha Docker images built for the branch.
+- [ ] Add `{coq,coq-core,coq-stdlib,coqide-server}.X.X.dev` packages in [`core-dev`](https://github.com/coq/opam-coq-archive/tree/master/core-dev)
+- [ ] Ping `@erikmd` and `@Zimmi48` to set up the infrastructure to have alpha Docker images built for the branch: the main steps amount to release `coq-bignums v9.Y.Y+coqX.X` in [`extra-dev`](https://github.com/coq/opam-coq-archive/tree/master/extra-dev), prepare a new [Docker-Coq](https://github.com/coq-community/docker-coq) image `coqorg/coq:X.X-alpha`, then browse <https://gitlab.inria.fr/coq/coq/-/hooks> to copy the `dev` webhook into a new `vX.X` webhook: `https://gitlab.com/api/v4/projects/19687072/trigger/pipeline?ref=master&variables[CRON_MODE]=rebuild-keyword&variables[ITEM]=X.X&token=_`, Push events → Wildcard pattern → `vX.X`, Test Push events. (If need be, the token can be regenerated at <https://gitlab.com/coq-community/docker-coq/-/settings/ci_cd>.)
 
 ## In the days following the branching ##
 
@@ -65,8 +66,18 @@
 
 ## Only for the final release of each major version ##
 
-- [ ] Ping `@Zimmi48` to publish a new version on Zenodo.
-  *TODO:* automate this with coqbot.
+- [ ] Ping `@coq/zenodo-maintainers` to publish a new version on Zenodo.
+  Process:
+  1. Go to the [Zenodo Coq community](https://zenodo.org/communities/rocq-prover) and click on the existing "Coq Proof Assistant" record.
+  2. Click on "New version".
+  3. Click on "Upload files" and upload the PDF manual and the source tarball, copied from the GitHub release.
+  4. Select the manual as the default preview.
+  5. Enter the release date as publication date.
+  6. Replace the release summary in the description with the one from the https://coq.inria.fr/refman/changes.html page for the current release (copy-pasting from the HTML page to the rich text editor works, except that bullet-point lists appear as quoted text, which you can fix easily in the rich text editor). Note that the first paragraph of the description is not the release summary but the general description of Coq, which should not change from one release to another.
+  7. Change the "Project manager" to the current release manager, and update the project members to match the current maintainers if necessary.
+  8. Add the (major) version number.
+  9. Update the link to the release on GitHub (in the related works section).
+  10. Click "Publish".
 
 ## This is now delegated to the platform maintainers ##
 

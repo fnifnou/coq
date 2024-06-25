@@ -867,6 +867,15 @@ let () =
   Proofview.tclEVARMAP >>= fun sigma ->
   return (Evarutil.has_undefined_evars sigma c)
 
+(** Uint63 *)
+
+let () = define "uint63_compare" (uint63 @-> uint63 @-> ret int) Uint63.compare
+
+let () = define "uint63_of_int" (int @-> ret uint63) Uint63.of_int
+
+let () = define "uint63_print" (uint63 @-> ret pp) @@ fun i ->
+  Pp.str (Uint63.to_string i)
+
 (** Extra equalities *)
 
 let () = define "evar_equal" (evar @-> evar @-> ret bool) Evar.equal
@@ -1093,6 +1102,9 @@ let () =
   define "new_goal" (evar @-> tac unit) @@ fun ev ->
   Proofview.tclEVARMAP >>= fun sigma ->
   if Evd.mem sigma ev then
+    let sigma = Evd.remove_future_goal sigma ev in
+    let sigma = Evd.unshelve sigma [ev] in
+    Proofview.Unsafe.tclEVARS sigma <*>
     Proofview.Unsafe.tclNEWGOALS [Proofview.with_empty_state ev] <*>
     Proofview.tclUNIT ()
   else throw err_notfound
@@ -1148,7 +1160,7 @@ let () =
 (** (unit -> constr) -> unit *)
 let () =
   define "refine" (closure @-> tac unit) @@ fun c ->
-  let c = thaw c >>= fun c -> Proofview.tclUNIT ((), Tac2ffi.to_constr c) in
+  let c = thaw c >>= fun c -> Proofview.tclUNIT ((), Tac2ffi.to_constr c, None) in
   Proofview.Goal.enter @@ fun gl ->
   Refine.generic_refine ~typecheck:true c gl
 

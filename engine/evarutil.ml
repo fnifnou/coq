@@ -125,23 +125,6 @@ let is_ground_env evd env =
   List.for_all is_ground_rel_decl (rel_context env) &&
   List.for_all is_ground_named_decl (named_context env)
 
-(* Return the head evar if any *)
-
-exception NoHeadEvar
-
-let head_evar sigma c =
-  (* FIXME: this breaks if using evar-insensitive code *)
-  let c = EConstr.Unsafe.to_constr c in
-  let rec hrec c = match kind c with
-    | Evar (evk,_)   -> evk
-    | Case (_, _, _, _, _, c, _) -> hrec c
-    | App (c,_)      -> hrec c
-    | Cast (c,_,_)   -> hrec c
-    | Proj (_, _, c)    -> hrec c
-    | _              -> raise NoHeadEvar
-  in
-  hrec c
-
 (* Expand head evar if any (currently consider only applications but I
    guess it should consider Case too) *)
 
@@ -416,7 +399,7 @@ let next_evar_name sigma naming = match naming with
 (* [new_evar] declares a new existential in an env env with type typ *)
 (* Converting the env into the sign of the evar to define *)
 let new_evar ?src ?filter ?relevance ?abstract_arguments ?candidates ?(naming = IntroAnonymous) ?typeclass_candidate
-    ?principal ?hypnaming env evd typ =
+    ?hypnaming env evd typ =
   let name = next_evar_name evd naming in
   let hypnaming = match hypnaming with
   | Some n -> n
@@ -434,13 +417,13 @@ let new_evar ?src ?filter ?relevance ?abstract_arguments ?candidates ?(naming = 
   | None -> ERelevance.relevant (* FIXME: relevant_of_type not defined yet *)
   in
   let (evd, evk) = new_pure_evar sign evd typ' ?src ?filter ~relevance ?abstract_arguments ?candidates ?name
-    ?typeclass_candidate ?principal in
+    ?typeclass_candidate in
   (evd, EConstr.mkEvar (evk, instance))
 
-let new_type_evar ?src ?filter ?naming ?principal ?hypnaming env evd rigid =
+let new_type_evar ?src ?filter ?naming ?hypnaming env evd rigid =
   let (evd', s) = new_sort_variable rigid evd in
   let relevance = EConstr.ESorts.relevance_of_sort s in
-  let (evd', e) = new_evar env evd' ?src ?filter ~relevance ?naming ~typeclass_candidate:false ?principal ?hypnaming (EConstr.mkSort s) in
+  let (evd', e) = new_evar env evd' ?src ?filter ~relevance ?naming ~typeclass_candidate:false ?hypnaming (EConstr.mkSort s) in
   evd', (e, s)
 
 let new_Type ?(rigid=Evd.univ_flexible) evd =

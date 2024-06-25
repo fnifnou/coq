@@ -108,10 +108,10 @@ project mtac2 "https://github.com/Mtac2/Mtac2" "master"
 # Mathclasses + Corn
 ########################################################################
 project math_classes "https://github.com/coq-community/math-classes" "master"
-# Contact @spitters on github
+# Contact @Lysxia and @spitters on github
 
 project corn "https://github.com/coq-community/corn" "master"
-# Contact @spitters on github
+# Contact @Lysxia and @spitters on github
 
 ########################################################################
 # Iris
@@ -521,6 +521,9 @@ project serapi "https://github.com/ejgallego/coq-serapi" "main"
 # SMTCoq
 ########################################################################
 project smtcoq "https://github.com/smtcoq/smtcoq" "coq-master"
+# Contact @ckeller on github
+
+project smtcoq_trakt "https://github.com/smtcoq/smtcoq" "with-trakt-coq-master"
 # Contact @ckeller on github
 
 ########################################################################

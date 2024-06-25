@@ -238,7 +238,7 @@ object
   method stop_worker : string -> unit task
 
   method get_n_errors : int
-  method get_errors : (int * string) list
+  method get_errors_warnings : (int * string) list
   method get_slaves_status : int * int * string CString.Map.t
   method backtrack_to_begin : unit -> unit task
   method handle_failure : handle_exn_rty -> unit task
@@ -643,7 +643,7 @@ object(self)
           self#attach_tooltip ~loc sentence
             (Printf.sprintf "%s %s %s" filepath ident ty)
       | GlobRef (_, _, _, _, _), None -> msg_wo_sent "GlobRef"
-      | Message(Error, loc, msg), Some (id,sentence) ->
+      | Message(Error, loc, _, msg), Some (id,sentence) ->
           log_pp ?id Pp.(str "ErrorMsg " ++ msg);
           remove_flag sentence `PROCESSING;
           let rmsg = Pp.string_of_ppcmds msg in
@@ -651,20 +651,20 @@ object(self)
           self#mark_as_needed sentence;
           self#attach_tooltip ?loc sentence rmsg;
           self#apply_tag_in_sentence ?loc Tags.Script.error sentence
-      | Message(Warning, loc, message), Some (id,sentence) ->
+      | Message(Warning, loc, _, message), Some (id,sentence) ->
           log_pp ?id Pp.(str "WarningMsg " ++ message);
           let rmsg = Pp.string_of_ppcmds message in
           add_flag sentence (`WARNING (loc, rmsg));
           self#attach_tooltip ?loc sentence rmsg;
           self#apply_tag_in_sentence ?loc Tags.Script.warning sentence;
           (messages#route msg.route)#push Warning message
-      | Message(lvl, loc, message), Some (id,sentence) ->
+      | Message(lvl, loc, _, message), Some (id,sentence) ->
           log_pp ?id Pp.(str "Msg " ++ message);
           (messages#route msg.route)#push lvl message
       (* We do nothing here as for BZ#5583 *)
-      | Message(Error, loc, msg), None ->
+      | Message(Error, loc, _, msg), None ->
           log_pp Pp.(str "Error Msg without a sentence" ++ msg)
-      | Message(lvl, loc, message), None ->
+      | Message(lvl, loc, _, message), None ->
           log_pp Pp.(str "Msg without a sentence " ++ message);
           (messages#route msg.route)#push lvl message
       | InProgress n, _ ->
@@ -860,19 +860,24 @@ object(self)
   method get_n_errors =
     Doc.fold_all document 0 (fun n _ _ s -> if has_flag s `ERROR then n+1 else n)
 
-  method get_errors =
-    let extract_error s =
-      match List.find (function `ERROR _ -> true | _ -> false) s.flags with
-      | `ERROR (loc, msg) ->
-         let iter = begin match loc with
-           | None      -> buffer#get_iter_at_mark s.start
-           | Some loc ->
-             fst (coq_loc_to_gtk_offset buffer loc)
-         end in iter#line + 1, msg
-      | _ -> assert false in
+  method get_errors_warnings =
+    let extract s =
+      let l = List.find_all (function `ERROR _ | `WARNING _ -> true | _ -> false) s.flags in
+      List.map (fun item ->
+        match item with
+        | `ERROR (loc, msg)
+        | `WARNING (loc, msg) ->
+           let iter = begin match loc with
+             | None      -> buffer#get_iter_at_mark s.start
+             | Some loc ->
+               fst (coq_loc_to_gtk_offset buffer loc)
+           end in iter#line + 1, msg
+        | _ -> assert false
+      ) l
+    in
     List.rev
       (Doc.fold_all document [] (fun acc _ _ s ->
-        if has_flag s `ERROR then extract_error s :: acc else acc))
+        if has_flag s `ERROR || (has_flag s `WARNING) then extract s @ acc else acc))
 
   method process_next_phrase =
     let until n _ _ = n >= 1 in

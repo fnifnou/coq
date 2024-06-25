@@ -168,7 +168,8 @@ let show_universes ~proof =
   let Proof.{goals;sigma} = Proof.data proof in
   let ctx = Evd.universe_context_set (Evd.minimize_universes sigma) in
   Termops.pr_evar_universe_context (Evd.evar_universe_context sigma) ++ fnl () ++
-  str "Normalized constraints:" ++ brk(1,1) ++ Univ.pr_universe_context_set (Termops.pr_evd_level sigma) ctx
+  v 1 (str "Normalized constraints:" ++ cut() ++
+       Univ.pr_universe_context_set (Termops.pr_evd_level sigma) ctx)
 
 (* Simulate the Intro(s) tactic *)
 let show_intro ~proof all =
@@ -1086,22 +1087,22 @@ let vernac_fixpoint_common ~atts l =
   List.iter (fun { fname } -> check_name_freshness scope fname) l;
   scope
 
-let vernac_fixpoint ~atts ~pm l =
+let vernac_fixpoint ~atts ~pm (rec_order,fixl as fix) =
   let open DefAttributes in
-  let scope = vernac_fixpoint_common ~atts l in
+  let scope = vernac_fixpoint_common ~atts fixl in
   let poly, typing_flags, program_mode, clearbody, using, user_warns =
     atts.polymorphic, atts.typing_flags, atts.program, atts.clearbody, atts.using, atts.user_warns in
   if program_mode then
     (* XXX: Switch to the attribute system and match on ~atts *)
-    let opens = List.exists (fun { body_def } -> Option.is_empty body_def) l in
+    let opens = List.exists (fun { body_def } -> Option.is_empty body_def) fixl in
     if opens then
       CErrors.user_err Pp.(str"Program Fixpoint requires a body.")
     else
       let pm = Option.get pm in
-      let pm = ComProgramFixpoint.do_fixpoint ~pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using l in
+      let pm = ComProgramFixpoint.do_fixpoint ~pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using fix in
       Some pm, None
   else
-    let proof = ComFixpoint.do_fixpoint ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using l in
+    let proof = ComFixpoint.do_mutually_recursive ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CFixRecOrder rec_order, fixl) in
     pm, proof
 
 let vernac_cofixpoint_common ~atts l =
@@ -1125,7 +1126,7 @@ let vernac_cofixpoint ~atts ~pm l =
       let pm = ComProgramFixpoint.do_cofixpoint ~pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using l in
       Some pm, None
   else
-    let proof = ComFixpoint.do_cofixpoint ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using l in
+    let proof = ComFixpoint.do_mutually_recursive ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CCoFixRecOrder, l) in
     pm, proof
 
 let vernac_scheme l =
@@ -1387,8 +1388,8 @@ let msg_of_subsection ss id =
   in
   Pp.str kind ++ spc () ++ Id.print id
 
-let vernac_end_segment ~pm ~proof ({v=id} as lid) =
-  let ss = Lib.Interp.find_opening_node id in
+let vernac_end_segment ~pm ~proof ({v=id; loc} as lid) =
+  let ss = Lib.Interp.find_opening_node ?loc id in
   let what_for = msg_of_subsection ss lid.v in
   if Option.has_some proof then
     CErrors.user_err (Pp.str "Command not supported (Open proofs remain)");
@@ -2455,7 +2456,7 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
     vtdefault(fun () -> vernac_inductive ~atts finite l)
 
   | VernacFixpoint (discharge, l) ->
-    let opens = List.exists (fun { body_def } -> Option.is_empty body_def) l in
+    let opens = List.exists (fun { body_def } -> Option.is_empty body_def) (snd l) in
     let discharge = discharge, "\"Let Fixpoint\"", "\"#[local] Fixpoint\"" in
     (if opens then
       vtopenproof (fun () ->

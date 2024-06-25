@@ -231,6 +231,7 @@ let set_option = let open Goptions in function
   | opt, OptionAppend v -> set_string_option_append_value_gen ~locality:OptLocal opt v
 
 let get_compat_file = function
+  | "8.21" -> "Coq.Compat.Coq821"
   | "8.20" -> "Coq.Compat.Coq820"
   | "8.19" -> "Coq.Compat.Coq819"
   | "8.18" -> "Coq.Compat.Coq818"
@@ -393,7 +394,7 @@ let parse_args ~usage ~init arglist : t * string list =
       { oval with config = {oval.config with native_include_dirs = include_dir :: oval.config.native_include_dirs } }
 
     (* Options with zero arg *)
-    |"-test-mode" -> Synterp.test_mode := true; oval
+    |"-test-mode" -> Flags.test_mode := true; oval
     |"-beautify" -> Flags.beautify := true; Flags.record_comments := true; oval
     |"-config"|"--config" -> set_query oval PrintConfig
 
