@@ -346,7 +346,7 @@ EQUATION DERIVES :
      - DependentElimination : 
 
 ELPI DERIVES : 
-    - eqb : 
+    - eqb : comme coq mais pas la meme forme
     - eqbOK :
     - induction :
     - param1 :
@@ -465,3 +465,68 @@ Cela a à voir avec les "Transparent" vs. "Opac" proofs.
 
 
 
+* RDV
+
+ind_tables : declarer une fonction avec un pattern plutot qu un suffixe
+._is_.
+._rect
+Dans declare_mutual_scheme_object et declare_individual_scheme_object
+Que ca ne prenne pas just un suffixe en parametre mais un pattern
+Aller voir dans elpi comment c est fait
+Plutot que add_suffix faire create pattern  dans define_individual_scheme_base
+
+Dans declare_scheme_object est ce que passer la fonction f va suffir, voir dans le code de equation et elpi et voir est ce que on peut faire une declaration avec. 
+
+type handle side_effect : aller voir
+Gère des dependance avec d'autres schemas, d autres noms globaux comme les schemas.
+
+dans elimschemes : build_induction_scheme_in_type c est le f de la fonction precedante.
+exemple de client de ind tables
+dans equation et dans elpi il y aura des commande qui ressemblent a ca pour declarer leurs derives
+
+paramcoq : 
+
+
+
+rendre accessible ces schemas a l utilisateur de coq.
+
+
+vernacentries : 
+trois vernac scheme diff : inductif, egalite ou combinné
+on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
+
+Generaliser la syntaxe de scheme equality pour qu on puisse faire la meme chose que avec induction : avoir un ident
+Command Scheme Boolean? Equality for reference
+on rajoute à scheme_type::=Induction|Minimality|Elimination|Case un Equality
+https://coq.inria.fr/doc/V8.18.0/refman/proofs/writing-proofs/reasoning-inductives.html#proofschemes-induction-principles
+le fichier boolean equality, si 
+rendre le sort optionnel dans le parseur car pas de sens pour equality (si induction ou autre on met Type par default)
+
+
+Quelle syntaxe on va donner pour les schemas elpi
+ligne 281 et 283 à intergrer à la ligne 280
+donc on va modif scheme
+
+
+PHOTO
+
+================================================
+3eme niveau : 
+Inductive rtree ...
+... rtree_rect is defined
+
+Set Elimination Scheme : defini les schemats creer automatiquement lors de la def d un type inductif
+tres rudimentaire pour l'instant
+
+4eme niveau : 
+shemas utilisé automtiquement.
+
+
+============================================
+
+make world : tres long
+make check : compile en bytecode donc bcp plus vite
+
+
+Si on declare des fonctions qui ne sont pas utilisées, alors cela fait une erreure de compilation.
+il faut mettre un _ devant le nom de la fonction pour resoudre ce pb.
