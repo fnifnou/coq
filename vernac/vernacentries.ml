@@ -607,74 +607,26 @@ let check_name_freshness locality {CAst.loc;v=id} : unit =
   then
     user_err ?loc  (Id.print id ++ str " already exists.")
 
-let program_inference_hook env sigma ev =
-  let tac = !Declare.Obls.default_tactic in
-  let evi = Evd.find_undefined sigma ev in
-  let evi = Evarutil.nf_evar_info sigma evi in
-  let env = Evd.evar_filtered_env env evi in
-  try
-    let concl = Evd.evar_concl evi in
-    if not (Evarutil.is_ground_env sigma env &&
-            Evarutil.is_ground_term sigma concl)
-    then None
-    else
-      let c, sigma =
-        Proof.refine_by_tactic ~name:(Id.of_string "program_subproof")
-          ~poly:false env sigma concl (Tacticals.tclSOLVE [tac])
-      in
-      Some (sigma, c)
-  with
-  | Logic_monad.TacticFailure e when noncritical e ->
-    user_err Pp.(str "The statement obligations could not be resolved \
-                      automatically, write a statement definition first.")
-
-(* XXX: Interpretation of lemma command, duplication with ComFixpoint
-   / ComDefinition ? *)
-let interp_lemma ~program_mode ~flags ~scope env0 evd thms =
-  let inference_hook = if program_mode then Some program_inference_hook else None in
-  List.fold_left_map (fun evd ((id, _), (bl, t)) ->
-      let evd, (impls, ((env, ctx), imps)) =
-        Constrintern.interp_context_evars ~program_mode env0 evd bl
-      in
-      let evd, (t', imps') = Constrintern.interp_type_evars_impls ~flags ~impls env evd t in
-      let flags = Pretyping.{ all_and_fail_flags with program_mode } in
-      let evd = Pretyping.solve_remaining_evars ?hook:inference_hook flags env evd in
-      let ids = List.map Context.Rel.Declaration.get_name ctx in
-      let thm = Declare.CInfo.make ~name:id.CAst.v ~typ:(EConstr.it_mkProd_or_LetIn t' ctx)
-          ~args:ids ~impargs:(imps @ imps') () in
-      evd, thm)
-    evd thms
-
-(* Checks done in start_lemma_com *)
-let post_check_evd ~udecl ~poly evd =
-  let () =
-    if not UState.(udecl.univdecl_extensible_instance &&
-                   udecl.univdecl_extensible_constraints) then
-      ignore (Evd.check_univ_decl ~poly evd udecl)
-  in
-  if poly then evd
-  else (* We fix the variables to ensure they won't be lowered to Set *)
-    Evd.fix_undefined_variables evd
-
-let start_lemma_com ~typing_flags ~program_mode ~poly ~scope ?clearbody ~kind ?user_warns ?using ?hook thms =
+let start_lemma_com ~typing_flags ~program_mode ~poly ~scope ?clearbody ~kind ?user_warns ?using ?hook ((id, udecl), (bl, t)) =
   let env0 = Global.env () in
   let env0 = Environ.update_typing_flags ?typing_flags env0 in
   let flags = Pretyping.{ all_no_fail_flags with program_mode } in
-  let udecls = List.map (fun ((_,univs),_) -> univs) thms in
-  let evd, udecl = Constrintern.interp_mutual_univ_decl_opt env0 udecls in
-  let evd, thms = interp_lemma ~program_mode ~flags ~scope env0 evd thms in
-  let mut_analysis = RecLemmas.look_for_possibly_mutual_statements evd thms in
+  let evd, udecl = Constrintern.interp_univ_decl_opt env0 udecl in
+  let evd, (impls, ((env, ctx), imps)) = Constrintern.interp_context_evars ~program_mode env0 evd bl in
+  let evd, (t', imps') = Constrintern.interp_type_evars_impls ~flags ~impls env evd t in
+  let ids = List.map Context.Rel.Declaration.get_name ctx in
+  let typ = EConstr.it_mkProd_or_LetIn t' ctx in
+  let evd =
+    let inference_hook = if program_mode then Some Declare.Obls.program_inference_hook else None in
+    Pretyping.solve_remaining_evars ?hook:inference_hook flags env0 evd in
   let evd = Evd.minimize_universes evd in
+  Pretyping.check_evars_are_solved ~program_mode env0 evd;
   let info = Declare.Info.make ?hook ~poly ~scope ?clearbody ~kind ~udecl ?typing_flags ?user_warns () in
-  match mut_analysis with
-  | RecLemmas.NonMutual thm ->
-    let thm = Declare.CInfo.to_constr evd thm in
-    let evd = post_check_evd ~udecl ~poly evd in
-    Declare.Proof.start_definition ~info ~cinfo:thm ?using evd
-  | RecLemmas.Mutual possible_guard ->
-    let cinfo = List.map (Declare.CInfo.to_constr evd) thms in
-    let evd = post_check_evd ~udecl ~poly evd in
-    Declare.Proof.start_mutual_definitions ~info ~cinfo ~possible_guard ?using evd
+  let typ = EConstr.to_constr evd typ in
+  Evd.check_univ_decl_early ~poly ~with_obls:false evd udecl [typ];
+  let evd = if poly then evd else Evd.fix_undefined_variables evd in
+  let thm = Declare.CInfo.make ~name:id.CAst.v ~typ ~args:ids ~impargs:(imps @ imps') () in
+  Declare.Proof.start_definition ~info ~cinfo:thm ?using evd
 
 let vernac_definition_hook ~canonical_instance ~local ~poly ~reversible = let open Decls in function
 | Coercion ->
@@ -702,6 +654,7 @@ let vernac_definition_name lid local =
     | { v = Name.Name n; loc } -> CAst.make ?loc n in
   check_name_freshness local lid;
   let () =
+    if Dumpglob.dump () then
     match local with
     | Discharge -> Dumpglob.dump_definition lid true "var"
     | Global _ -> Dumpglob.dump_definition lid false "def"
@@ -716,7 +669,7 @@ let vernac_definition_interactive ~atts (discharge, kind) (lid, pl) bl t =
   let hook = vernac_definition_hook ~canonical_instance ~local ~poly ~reversible kind in
   let name = vernac_definition_name lid scope in
   start_lemma_com ~typing_flags ~program_mode ~poly ~scope ?clearbody
-    ~kind:(Decls.IsDefinition kind) ?user_warns ?using ?hook [(name, pl), (bl, t)]
+    ~kind:(Decls.IsDefinition kind) ?user_warns ?using ?hook ((name, pl), (bl, t))
 
 let vernac_definition ~atts ~pm (discharge, kind) (lid, pl) bl red_option c typ_opt =
   let open DefAttributes in
@@ -748,14 +701,21 @@ let vernac_start_proof ~atts kind l =
   let open DefAttributes in
   if Dumpglob.dump () then
     List.iter (fun ((id, _), _) -> Dumpglob.dump_definition id false "prf") l;
-  let scope, poly, program_mode, user_warns, typing_flags, using =
-    atts.scope, atts.polymorphic, atts.program, atts.user_warns, atts.typing_flags, atts.using in
+  let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
+    atts.scope, atts.locality, atts.polymorphic, atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
   List.iter (fun ((id, _), _) -> check_name_freshness scope id) l;
-  start_lemma_com
-    ~typing_flags
-    ~program_mode
-    ~poly
-    ~scope ~kind:(Decls.IsProof kind) ?user_warns ?using l
+  match l with
+  | [] -> assert false
+  | [decl] ->
+    start_lemma_com ~typing_flags ~program_mode ~poly   ~scope ~kind:(Decls.IsProof kind) ?user_warns ?using decl
+  | _ ->
+    let fix = List.map (fun ((fname, univs), (binders, rtype)) ->
+        { fname; binders; rtype; body_def = None; univs; notations = []}) l in
+    let pm, proof =
+      ComFixpoint.do_mutually_recursive ~program_mode ~use_inference_hook:program_mode
+        ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CUnknownRecOrder, fix) in
+    assert (Option.is_empty pm);
+    Option.get proof
 
 let vernac_end_proof ~lemma ~pm = let open Vernacexpr in function
   | Admitted ->
@@ -1087,23 +1047,27 @@ let vernac_fixpoint_common ~atts l =
   List.iter (fun { fname } -> check_name_freshness scope fname) l;
   scope
 
-let vernac_fixpoint ~atts ~pm (rec_order,fixl as fix) =
+let with_obligations program_mode f pm =
+  if program_mode then
+    f pm ~program_mode:true
+  else
+    let pm', proof = f None ~program_mode:false in
+    assert (Option.is_empty pm');
+    pm, proof
+
+let vernac_fixpoint ~atts ~pm (rec_order,fixl) =
   let open DefAttributes in
   let scope = vernac_fixpoint_common ~atts fixl in
   let poly, typing_flags, program_mode, clearbody, using, user_warns =
     atts.polymorphic, atts.typing_flags, atts.program, atts.clearbody, atts.using, atts.user_warns in
-  if program_mode then
-    (* XXX: Switch to the attribute system and match on ~atts *)
-    let opens = List.exists (fun { body_def } -> Option.is_empty body_def) fixl in
-    if opens then
-      CErrors.user_err Pp.(str"Program Fixpoint requires a body.")
-    else
-      let pm = Option.get pm in
-      let pm = ComProgramFixpoint.do_fixpoint ~pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using fix in
-      Some pm, None
-  else
-    let proof = ComFixpoint.do_mutually_recursive ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CFixRecOrder rec_order, fixl) in
-    pm, proof
+  let () =
+    if program_mode then
+      (* XXX: Switch to the attribute system and match on ~atts *)
+      let opens = List.exists (fun { body_def } -> Option.is_empty body_def) fixl in
+      if opens then CErrors.user_err Pp.(str"Program Fixpoint requires a body.") in
+  with_obligations program_mode
+    (fun pm -> ComFixpoint.do_mutually_recursive ?pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CFixRecOrder rec_order, fixl))
+    pm
 
 let vernac_cofixpoint_common ~atts l =
   if Dumpglob.dump () then
@@ -1112,22 +1076,19 @@ let vernac_cofixpoint_common ~atts l =
   List.iter (fun { fname } -> check_name_freshness scope fname) l;
   scope
 
-let vernac_cofixpoint ~atts ~pm l =
+let vernac_cofixpoint ~pm ~atts cofixl =
   let open DefAttributes in
-  let scope = vernac_cofixpoint_common ~atts l in
-  let poly, typing_flags, using, clearbody, user_warns =
-    atts.polymorphic, atts.typing_flags, atts.using, atts.clearbody, atts.user_warns in
-  if atts.program then
-    let opens = List.exists (fun { body_def } -> Option.is_empty body_def) l in
-    if opens then
-      CErrors.user_err Pp.(str"Program CoFixpoint requires a body.")
-    else
-      let pm = Option.get pm in
-      let pm = ComProgramFixpoint.do_cofixpoint ~pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using l in
-      Some pm, None
-  else
-    let proof = ComFixpoint.do_mutually_recursive ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CCoFixRecOrder, l) in
-    pm, proof
+  let scope = vernac_cofixpoint_common ~atts cofixl in
+  let poly, typing_flags, program_mode, clearbody, using, user_warns =
+    atts.polymorphic, atts.typing_flags, atts.program, atts.clearbody, atts.using, atts.user_warns in
+  let () =
+    if program_mode then
+      let opens = List.exists (fun { body_def } -> Option.is_empty body_def) cofixl in
+      if opens then
+        CErrors.user_err Pp.(str"Program CoFixpoint requires a body.") in
+  with_obligations program_mode
+    (fun pm -> ComFixpoint.do_mutually_recursive ?pm ~scope ?clearbody ~poly ?typing_flags ?user_warns ?using (CCoFixRecOrder, cofixl))
+    pm
 
 let vernac_scheme l =
   if Dumpglob.dump () then

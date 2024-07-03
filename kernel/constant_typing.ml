@@ -213,9 +213,10 @@ let infer_parameter ~sec_univs env entry =
   }
 
 let infer_definition ~sec_univs env entry =
-  let env, usubst, _, univs = process_universes env entry.const_entry_universes in
-  let j = Typeops.infer env entry.const_entry_body in
-  let typ = match entry.const_entry_type with
+  let env, usubst, _, univs = process_universes env entry.definition_entry_universes in
+  let hbody = HConstr.of_constr env entry.definition_entry_body in
+  let j = Typeops.infer_hconstr env hbody in
+  let typ = match entry.definition_entry_type with
     | None ->
       Vars.subst_univs_level_constr usubst j.uj_type
     | Some t ->
@@ -224,9 +225,10 @@ let infer_definition ~sec_univs env entry =
       Vars.subst_univs_level_constr usubst tj.utj_val
   in
   let body = Vars.subst_univs_level_constr usubst j.uj_val in
+  let hbody = if body == j.uj_val then Some hbody else None in
   let def = Def body in
-  let hyps = used_section_variables env entry.const_entry_secctx (Some body) typ in
-  {
+  let hyps = used_section_variables env entry.definition_entry_secctx (Some body) typ in
+  hbody, {
     const_hyps = hyps;
     const_univ_hyps = make_univ_hyps sec_univs;
     const_body = def;
@@ -234,15 +236,9 @@ let infer_definition ~sec_univs env entry =
     const_body_code = ();
     const_universes = univs;
     const_relevance = Relevanceops.relevance_of_term env body;
-    const_inline_code = entry.const_entry_inline_code;
+    const_inline_code = entry.definition_entry_inline_code;
     const_typing_flags = Environ.typing_flags env;
   }
-
-let infer_constant ~sec_univs env = function
-  | PrimitiveEntry entry -> infer_primitive env entry
-  | SymbolEntry entry -> infer_symbol env entry
-  | ParameterEntry entry -> infer_parameter ~sec_univs env entry
-  | DefinitionEntry entry -> infer_definition ~sec_univs env entry
 
 (** Definition is opaque (Qed), so we delay the typing of its body. *)
 let infer_opaque ~sec_univs env entry =
@@ -281,7 +277,8 @@ let check_delayed (type a) (handle : a effect_handler) tyenv (body : a proof_out
   in
   (* Note: non-trivial trusted side-effects only in monomorphic case *)
   let body,env,ectx = skip_trusted_seff valid_signatures body env in
-  let j = Typeops.infer env body in
+  let hbody = HConstr.of_constr env body in
+  let j = Typeops.infer_hconstr env hbody in
   let j = unzip ectx j in
   let _ = Typeops.judge_of_cast env j DEFAULTcast tyj in
   let declared =
@@ -291,7 +288,8 @@ let check_delayed (type a) (handle : a effect_handler) tyenv (body : a proof_out
   let () = assert (Id.Set.equal declared declared') in
   (* Note: non-trivial usubst only in polymorphic case *)
   let def = Vars.subst_univs_level_constr usubst j.uj_val in
-  def, univs
+  let hbody = if def == j.uj_val && List.is_empty ectx then Some hbody else None in
+  hbody, def, univs
 
 (*s Global and local constant declaration. *)
 
