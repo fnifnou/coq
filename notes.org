@@ -459,74 +459,104 @@ Cela a à voir avec les "Transparent" vs. "Opac" proofs.
 
 3) 
 
+* Solo 3
+
+** DONE  ind_tables : declarer une fonction avec un pattern plutot qu un suffixe
+     ._is_.
+     ._rect
+     Dans declare_mutual_scheme_object et declare_individual_scheme_object
+     Que ca ne prenne pas just un suffixe en parametre mais un pattern
+     Plutot que add_suffix faire create pattern  dans define_individual_scheme_base
+
+Beaucoup d'endroits où on creer le nom du scheme avec suff : 
+     - indschemes : ligne 339 dans scheme_suffix_gen
+       Fonction pour generer le bon suffixe
+       utilisé dans
+     - indschemes 368 : name_and_process_scheme
+       utilisé dans do_scheme
+
+     - ind_tables : ligne 57 dans declare_scheme_object
+       n'est pas utilisé lors de la declaration d'un nouveau inductif
+       est utilisé au lancement de coqtop pour creer tous les : 
+       rect_dep, rec_dep, ind_dep, sind_dep, rect_nodep, rec_nodep, ind_nodep, sind_nodep, case_dep, case_nodep, casep_dep, casep_nodep, sym_internal, sym_involutive, rew_r_dep, rew_dep, rew_fwd_dep, rew_fwd_r_dep, rew_r, rew, congr, beq, dec_bl, dec_lb, eq_dec, 
+ 
+     - indschemes 252 : lorsqu'un inductif est def par l'utilisateur
+       just avant l'appel à ind_tables.define_individual_scheme
+       ici on creer le tableau elims: (Ind_tables.individual Ind_tables.scheme_kind * string option) list =
+         [(rect_dep, Some "rect"); (ind_dep, Some "ind"); 
+          (rec_dep, Some "rec"); (sind_dep, Some "sind")]
+       sur lequel on va iterer pour creer les schemes avec Some suff pour indiquer le suffixe voulu
+
+** TODO Aller voir dans elpi comment c est fait
 
 
 
+** TODO Dans declare_scheme_object est ce que passer la fonction f va suffir, voir dans le code de equation et elpi et voir est ce que on peut faire une declaration avec. 
 
+** TODO type handle side_effect : aller voir
+     Gère des dependance avec d'autres schemas, d autres noms globaux comme les schemas.
 
+** TODO Dans elimschemes : build_induction_scheme_in_type c est le f de la fonction precedante.
+     exemple de client de ind_tables
+     dans equation et dans elpi il y aura des commande qui ressemblent a ca pour declarer leurs derives
 
-* RDV
+** TODO paramcoq 
+     rendre accessible ces schemas a l utilisateur de coq.
 
-ind_tables : declarer une fonction avec un pattern plutot qu un suffixe
-._is_.
-._rect
-Dans declare_mutual_scheme_object et declare_individual_scheme_object
-Que ca ne prenne pas just un suffixe en parametre mais un pattern
-Aller voir dans elpi comment c est fait
-Plutot que add_suffix faire create pattern  dans define_individual_scheme_base
+** TODO vernacentries
+     trois vernac scheme diff : inductif, egalite ou combinné
+     on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
 
-Dans declare_scheme_object est ce que passer la fonction f va suffir, voir dans le code de equation et elpi et voir est ce que on peut faire une declaration avec. 
+** TODO Generaliser la syntaxe de scheme equality pour qu on puisse faire la meme chose que avec induction : avoir un ident
+     Command Scheme Boolean? Equality for reference
+     on rajoute à scheme_type::=Induction|Minimality|Elimination|Case un Equality
+     https://coq.inria.fr/doc/V8.18.0/refman/proofs/writing-proofs/reasoning-inductives.html#proofschemes-induction-principles
+     le fichier boolean equality, si 
+     rendre le sort optionnel dans le parseur car pas de sens pour equality (si induction ou autre on met Type par default)
 
-type handle side_effect : aller voir
-Gère des dependance avec d'autres schemas, d autres noms globaux comme les schemas.
-
-dans elimschemes : build_induction_scheme_in_type c est le f de la fonction precedante.
-exemple de client de ind tables
-dans equation et dans elpi il y aura des commande qui ressemblent a ca pour declarer leurs derives
-
-paramcoq : 
-
-
-
-rendre accessible ces schemas a l utilisateur de coq.
-
-
-vernacentries : 
-trois vernac scheme diff : inductif, egalite ou combinné
-on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
-
-Generaliser la syntaxe de scheme equality pour qu on puisse faire la meme chose que avec induction : avoir un ident
-Command Scheme Boolean? Equality for reference
-on rajoute à scheme_type::=Induction|Minimality|Elimination|Case un Equality
-https://coq.inria.fr/doc/V8.18.0/refman/proofs/writing-proofs/reasoning-inductives.html#proofschemes-induction-principles
-le fichier boolean equality, si 
-rendre le sort optionnel dans le parseur car pas de sens pour equality (si induction ou autre on met Type par default)
-
-
-Quelle syntaxe on va donner pour les schemas elpi
-ligne 281 et 283 à intergrer à la ligne 280
-donc on va modif scheme
-
+** TODO Quelle syntaxe on va donner pour les schemas elpi
+     ligne 281 et 283 à intergrer à la ligne 280
+     donc on va modif scheme
 
 PHOTO
+clé(string) -> string list * sort.family option
+suffix(string) -> pattern "._rect"
 
-================================================
-3eme niveau : 
-Inductive rtree ...
-... rtree_rect is defined
+Scheme Inductiv_for_sort InType -> SchemeInductiv, Some InType -> "_rest"
 
-Set Elimination Scheme : defini les schemats creer automatiquement lors de la def d un type inductif
-tres rudimentaire pour l'instant
-
-4eme niveau : 
-shemas utilisé automtiquement.
-
+declare_mutual_scheme_object(["Elpi";"Param1"],None)
+                            (["Induction"],Some InType) -> "._rect"
 
 ============================================
 
 make world : tres long
 make check : compile en bytecode donc bcp plus vite
 
-
 Si on declare des fonctions qui ne sont pas utilisées, alors cela fait une erreure de compilation.
-il faut mettre un _ devant le nom de la fonction pour resoudre ce pb.
+il faut mettre un _ devant le nom de la fonction pour resoudre ce pb. (fantome)
+
+** Questions
+
+1) ind_tables.mli ligne 34 : 
+   "Main functions to register a scheme builder. Note these functions
+   are not safe to be used by plugins as their effects won't be undone
+   on backtracking."
+2) 
+
+
+
+* Plus tard 
+
+** 3eme niveau : 
+Inductive rtree ...
+... rtree_rect is defined
+
+Set Elimination Scheme : defini les schemats creer automatiquement lors de la def d un type inductif
+tres rudimentaire pour l'instant, on ne peut pas modifier grand chose.
+
+** 4eme niveau : 
+shemas utilisés automatiquement.
+
+
+
+

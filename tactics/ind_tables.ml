@@ -49,6 +49,9 @@ type scheme_object_function =
   | MutualSchemeFunction of mutual_scheme_object_function * (Environ.env -> MutInd.t -> scheme_dependency list) option
   | IndividualSchemeFunction of individual_scheme_object_function * (Environ.env -> inductive -> scheme_dependency list) option
 
+(* Ne contient que les schemes creer au lancement de coqtop (ou autre)
+
+On n'y ajoute pas les schemes des inductifs def par l'utilisateur. *)
 let scheme_object_table =
   (Hashtbl.create 17 : (string, string * scheme_object_function) Hashtbl.t)
 
