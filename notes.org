@@ -421,9 +421,7 @@ Ameliorer tout ca en utilisant les Fix ety les match with qui eux fonctionnent t
 
 De base : 
 #+begin_src
-Inductive rtree A : Type :=
-| Leaf (a : A)
-| Node (l : list (rtree A)).
+Inductive rtree A : Type := | Leaf (a : A) | Node (l : list (rtree A)).
 
 (* associated induction principle is the following one *)
 
@@ -460,61 +458,228 @@ Cela a à voir avec les "Transparent" vs. "Opac" proofs.
 3) 
 
 * Solo 3
-
 ** DONE  ind_tables : declarer une fonction avec un pattern plutot qu un suffixe
      ._is_.
      ._rect
      Dans declare_mutual_scheme_object et declare_individual_scheme_object
      Que ca ne prenne pas just un suffixe en parametre mais un pattern
      Plutot que add_suffix faire create pattern  dans define_individual_scheme_base
+     -> 
 
-Beaucoup d'endroits où on creer le nom du scheme avec suff : 
+*** Se qui déclare les schemes : 
+     - ind_tables : ligne 57 dans declare_scheme_object
+       n'est pas utilisé lors de la declaration d'un nouveau inductif
+       est utilisé au lancement de coqtop pour creer tous les : 
+            rect_dep, rec_dep, ind_dep, sind_dep, rect_nodep, rec_nodep, ind_nodep, sind_nodep, case_dep, case_nodep, casep_dep, casep_nodep, sym_internal, sym_involutive, rew_r_dep, rew_dep, rew_fwd_dep, rew_fwd_r_dep, rew_r, rew, congr, beq, dec_bl, dec_lb, eq_dec,
+       Fait depuis eqschemes.ml, elimschemes.ml, auto_ind_decl.ml
+
+*** Se qui defini les schemes sur des inductif : 
+     - indschemes 252 : lorsqu'un inductif est def par l'utilisateur (ou Scheme Induction for ...)
+       just avant l'appel à ind_tables -> define_individual_scheme -> define_individual_scheme_base -> add_suffix
+       ici on creer le tableau 
+         elims: (Ind_tables.individual Ind_tables.scheme_kind * string option) list =
+            [(rect_dep, Some "rect"); (ind_dep, Some "ind"); 
+            (rec_dep, Some "rec"); (sind_dep, Some "sind")]
+       sur lequel on va iterer pour creer les schemes avec Some suff pour indiquer le suffixe voulu
+
      - indschemes : ligne 339 dans scheme_suffix_gen
        Fonction pour generer le bon suffixe
        utilisé dans
      - indschemes 368 : name_and_process_scheme
        utilisé dans do_scheme
+     fait lorsqu'on appelle : 
+        Scheme Induction for nat Sort Type.       -> nat_rect
+        Scheme Minimality for nat Sort Type.     -> nat_rect_nodep
+        Scheme Elimination for nat Sort Type.    -> nat_caset
+        Scheme Case for nat Sort Type.             -> nat_caset_nodep
+     tendis que : 
+        Scheme Equality for nat.   -> nat_beq
+                                                     nat_eq_dec
+     passe pas par indschemes, mais par auto_ind_decl.build_beq_scheme.
 
-     - ind_tables : ligne 57 dans declare_scheme_object
-       n'est pas utilisé lors de la declaration d'un nouveau inductif
-       est utilisé au lancement de coqtop pour creer tous les : 
-       rect_dep, rec_dep, ind_dep, sind_dep, rect_nodep, rec_nodep, ind_nodep, sind_nodep, case_dep, case_nodep, casep_dep, casep_nodep, sym_internal, sym_involutive, rew_r_dep, rew_dep, rew_fwd_dep, rew_fwd_r_dep, rew_r, rew, congr, beq, dec_bl, dec_lb, eq_dec, 
- 
-     - indschemes 252 : lorsqu'un inductif est def par l'utilisateur
-       just avant l'appel à ind_tables.define_individual_scheme
-       ici on creer le tableau elims: (Ind_tables.individual Ind_tables.scheme_kind * string option) list =
-         [(rect_dep, Some "rect"); (ind_dep, Some "ind"); 
-          (rec_dep, Some "rec"); (sind_dep, Some "sind")]
-       sur lequel on va iterer pour creer les schemes avec Some suff pour indiquer le suffixe voulu
+**** indscheme.ml 
 
-** TODO Aller voir dans elpi comment c est fait
+     - declaration des flags
+     - let try_declare_scheme ?locmap what f internal names kn =
+     - beq declaration
+     - Case analysis schemes
+     - Induction/recursion schemes
+     - Decidable equality
+     - declare_rewriting_schemes
+     - declare_congr_scheme
+     - declare_sym_scheme
+     - Scheme Command
+       - scheme_suffix_gen
+       - name_and_process_scheme
+       - do_mutual_induction_scheme
+       - do_scheme
+       - do_scheme_equality
+       - Combined scheme (Sozeau)
+       - declare_default_schemes  /!\
+
+** DONE Aller voir dans Equations comment c est fait
+
+Impossible de debugg : erreur lors du
+From Equations Require Import Equations.
 
 
+- src/ederive.ml : make_derive_ind : fonction pour enregistrer dans le Global.env de coq un derive de equations. 
+- src/ederive.ml : register_derive : ajoute le derive de equation dans une table du fichier ederive
+
+- src/noconf.ml : 
+let () =
+  Ederive.(register_derive
+            { derive_name = "NoConfusion";
+              derive_fn = make_derive_ind derive_no_confusion })
+- src/eqdec.ml : 
+let () =
+  Ederive.(register_derive
+            { derive_name = "EqDec";
+              derive_fn = make_derive_ind derive_eq_dec })
+- src/depelim.ml : 
+Ederive.(register_derive
+             { derive_name = "DependentElimination"
+             ; derive_fn = make_derive_ind fn })
+- src/subterm.ml
+idem
+- src/noconf_hom.ml
+idem
+
+*** Suffix
+
+_build_ci/equations/src/principles.ml:1309:  
+     let indid = Nameops.add_suffix id "_graph_correct" in
+
+_build_ci/equations/src/principles.ml:1295:  
+     let cinfo = Declare.CInfo.make ~name:(Nameops.add_suffix id "_elim") ~typ:newty () in
+
+** DONE Aller voir dans elpi comment c est fait
+
+#+begin_src
+From elpi.apps Require Import derive.std.
+
+derive Inductive peano := Zero | Succ (p : peano).
+#+end_src
+
+/home/fnifnou/Documents/stageCoq/coq/_build_ci/elpi/apps/derive/theories/derive.v
+definie la commande derive
+
+
+/home/fnifnou/Documents/stageCoq/coq/_build_ci/elpi/apps/derive/theories/derive/std.v
+ici on importe derive.
+puis on importe les derrivations de bases : map, lens, param1, inductions, eqb, etc.
+toutes ces derivations sont codé en elpi.
+
+** DONE Aller voir dans paramcoq comment c est fait
+
+paramcoq/src/abstraction.mlg : search Parametricity
+ici qu'est defini la commande Parametricity qui creer les schemes de paramcoq pour un tyê inductif.
+     | Parametricity <ident> as <name> [arity <n>].
+     | Parametricity my_id as my_param.
+     | Parametricity [Recursive] <ident> [arity <n>] [qualified].
+     | Parametricity Translation <term> [as <name>] [arity <n>].
+     | Parametricity Module <module_path>.
+
+paramcoq/src/declare_translation.ml 323 : translateFullName 
+
+paramcoq/src/declare_translation.ml 387 : command_reference
+redirrige vers la bonne fonction en fonction du type de ref du <indent> passé à Parametricity
+     -> VarRef : erreur, Cannot translate an axiom nor a variable.
+     -> ConstRef -> command_constant -> 
+          ...
+          translateFullName
+          ...
+          declare_abstraction
+
+paramcoq/src/parametricity.ml  175 : translate_id, translate_name, etc
+c'est dans ce fichier qu'est defini la syntaxe des noms de scheme defini.
+
+Les parametricity statements sont enregistrés dans ................
+
+#+begin_src coq
+From Param Require Import Param.
+
+Parametricity nat as my_param.
+
+Parametricity Recursive nat qualified.
+#+end_src
+
+#+begin_src coq
+From Param Require Import Param.
+
+Inductive bool := true | false.
+
+Parametricity bool arity 1.
+Print bool_P.
+
+Parametricity bool arity 2.
+Print bool_R.
+#+end_src
+
+
+*** Suffix
+
+/home/fnifnou/Documents/stageCoq/coq/_build_ci/paramcoq/src/declare_translation.ml 347 : 
+si un nom est pas specifié alors 
+#+begin_src ocaml
+Names.Id.of_string
+   @@ translateFullName ~fullname arity
+   @@ Names.Constant.canonical
+   @@ constant
+#+end_src
+
+/home/fnifnou/Documents/stageCoq/coq/_build_ci/paramcoq/src/parametricity 155 : translate_string
+[translate_string] provides a generic name for the translation of identifiers.
 
 ** TODO Dans declare_scheme_object est ce que passer la fonction f va suffir, voir dans le code de equation et elpi et voir est ce que on peut faire une declaration avec. 
 
-** TODO type handle side_effect : aller voir
-     Gère des dependance avec d'autres schemas, d autres noms globaux comme les schemas.
+elimschemes : build_induction_scheme_in_type
+elimschemes : optimize_non_type_induction_scheme
+elimschemes : build_case_analysis_scheme_in_type
 
-** TODO Dans elimschemes : build_induction_scheme_in_type c est le f de la fonction precedante.
      exemple de client de ind_tables
      dans equation et dans elpi il y aura des commande qui ressemblent a ca pour declarer leurs derives
 
-** TODO paramcoq 
-     rendre accessible ces schemas a l utilisateur de coq.
+** DONE type handle side_effect : aller voir
+
+     Gère des dependance avec d'autres noms globaux comme les schemas.
+
+     Utilisé dans /home/fnifnou/Documents/stageCoq/coq/tactics/ind_tables.ml 113
+     dans local_lookup_scheme
+
+     Utilisé dans indtables dans define_individual_scheme et define_mutual_scheme
+     on ajoute, les schemes des types inductifs definis, aux side_effects puis on les retourne 
+
+     Utilisé dans /home/fnifnou/Documents/stageCoq/coq/tactics/ind_tables 99
+     dans redeclare_schemes
+     Permet si le lookup_scheme kind ind retourne None, de chercher le scheme dans la cMap de side_effects
+     
+     Lors de la declaration d'un inductif par l'utilisateur, les schemes de cet inductifs sont declaré dans les sides_effects et non dans le scheme_object_table.
 
 ** TODO vernacentries
      trois vernac scheme diff : inductif, egalite ou combinné
      on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
 
-** TODO Generaliser la syntaxe de scheme equality pour qu on puisse faire la meme chose que avec induction : avoir un ident
-     Command Scheme Boolean? Equality for reference
-     on rajoute à scheme_type::=Induction|Minimality|Elimination|Case un Equality
-     https://coq.inria.fr/doc/V8.18.0/refman/proofs/writing-proofs/reasoning-inductives.html#proofschemes-induction-principles
-     le fichier boolean equality, si 
-     rendre le sort optionnel dans le parseur car pas de sens pour equality (si induction ou autre on met Type par default)
+** TODO vernacexpr
 
-** TODO Quelle syntaxe on va donner pour les schemas elpi
+     Generaliser la syntaxe de scheme equality pour qu on puisse faire la meme chose que avec induction : avoir un ident
+
+     Command Scheme Boolean? Equality for reference
+     
+     vernac/vernacexpr.mli
+     on rajoute à scheme_type::=Induction|Minimality|Elimination|Case    un Equality
+
+
+https://coq.inria.fr/doc/V8.18.0/refman/proofs/writing-proofs/reasoning-inductives.html#proofschemes-induction-principles
+
+     le fichier boolean equality, si 
+     rendre le Sort optionnel dans le parseur car pas de sens pour equality (si induction ou autre on met Type par default)
+
+** TODO g_vernac
+
+Quelle syntaxe on va donner pour les schemas elpi
+
+     vernac/g_vernac.mlg
      ligne 281 et 283 à intergrer à la ligne 280
      donc on va modif scheme
 
@@ -527,7 +692,7 @@ Scheme Inductiv_for_sort InType -> SchemeInductiv, Some InType -> "_rest"
 declare_mutual_scheme_object(["Elpi";"Param1"],None)
                             (["Induction"],Some InType) -> "._rect"
 
-============================================
+** make rapide
 
 make world : tres long
 make check : compile en bytecode donc bcp plus vite
@@ -535,17 +700,31 @@ make check : compile en bytecode donc bcp plus vite
 Si on declare des fonctions qui ne sont pas utilisées, alors cela fait une erreure de compilation.
 il faut mettre un _ devant le nom de la fonction pour resoudre ce pb. (fantome)
 
-** Questions
+* Questions
 
 1) ind_tables.mli ligne 34 : 
    "Main functions to register a scheme builder. Note these functions
    are not safe to be used by plugins as their effects won't be undone
    on backtracking."
-2) 
-
-
+2) lorsque dans un pluggin on fait refference à une fonction d'un module du core de coq, alors les fonction de merlin pour voir son type, sauter à la def de la fonction etc ne fonctionnent pas.
+3) Qu'est ce qu'un Hook : Declare.Hook
+    /home/fnifnou/Documents/stageCoq/coq/vernac/declare.ml
+    utilisé dans /home/fnifnou/Documents/stageCoq/coq/_build_ci/paramcoq/src/declare_translation.ml 97
+4) Qu'est ce au'un Declare.OblState.t
+     /home/fnifnou/Documents/stageCoq/coq/vernac/declare.ml
+5) Pour etre sur d'avoir bien comprit : 
+   - on defini tous les schemes existant au lancement de coqtop et en les stockant dans scheme_object_table
+   - Lorsque l'on defini un type inductif, on va chercher le scheme dans scheme_object_table puis on l'applique à notre type inductif avec define_individual_scheme ou define_mutual_scheme, et on le stock dans side_effects.
+6) Je ne comprend pas encore trés bien se qu'est l'arity, mais peut etre cela ne me concerne pas?
+7) Est ce que je dois m'interresser aux engine/uState.ml ?
+   utilisé dans ind_tables fonction define 130-133.
+8) 
 
 * Plus tard 
+
+Le but final : 
+- Que les plugin puisse utiliser ind_tables.define_individual_scheme etc pour creer leurs schemes, plutot aue de creer leurs propres tables de schemes.
+- Que l'on puisse ajouter des schemes au core de coq plus simplement
 
 ** 3eme niveau : 
 Inductive rtree ...

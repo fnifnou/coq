@@ -54,6 +54,7 @@ type scheme_object_function =
 On n'y ajoute pas les schemes des inductifs def par l'utilisateur. *)
 let scheme_object_table =
   (Hashtbl.create 17 : (string, string * scheme_object_function) Hashtbl.t)
+(*(Hashtbl.create 17 : (pattern, string * scheme_object_function) Hashtbl.t) *)
 
 let declare_scheme_object key ?(suff=key) f =
   let () =
@@ -131,6 +132,7 @@ let define ?loc internal role id c poly uctx =
   let uctx = UState.minimize uctx in
   let c = UState.nf_universes uctx c in
   let univs = UState.univ_entry ~poly uctx in
+  (* ici on appelle vernac/declare.ml declare_definition_scheme *)
   !declare_definition_scheme ~internal ~univs ~role ~name:id ?loc c
 
   module Locmap : sig
