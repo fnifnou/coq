@@ -841,7 +841,7 @@ attribute: [
 
 attr_value: [
 | "=" string
-| "=" IDENT
+| "=" qualid
 | "(" attribute_list ")"
 |
 ]
@@ -1069,7 +1069,7 @@ rw_pattern: [
 ]
 
 rewrite_rule: [
-| OPT [ univ_decl "|-" ] rw_pattern ">->" lconstr
+| OPT [ univ_decl "|-" ] rw_pattern "=>" lconstr
 ]
 
 scheme: [
@@ -1307,6 +1307,7 @@ ssexpr0: [
 args_modifier: [
 | "simpl" "nomatch"
 | "simpl" "never"
+| "clear" "simpl"
 | "default" "implicits"
 | "clear" "implicits"
 | "clear" "scopes"

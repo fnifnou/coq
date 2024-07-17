@@ -262,7 +262,7 @@ attribute: [
 
 attr_value: [
 | "=" string
-| "=" ident
+| "=" qualid
 | "(" LIST1 attribute SEP "," ")"
 ]
 
@@ -579,7 +579,7 @@ rw_pattern: [
 ]
 
 rewrite_rule: [
-| OPT [ univ_decl "|-" ] rw_pattern ">->" term
+| OPT [ univ_decl "|-" ] rw_pattern "=>" term
 ]
 
 scheme_kind: [
@@ -676,6 +676,7 @@ implicits_alt: [
 args_modifier: [
 | "simpl" "nomatch"
 | "simpl" "never"
+| "clear" "simpl"
 | "default" "implicits"
 | "clear" "implicits"
 | "clear" "scopes"

@@ -54,7 +54,7 @@ module DefAttributes = struct
     locality : bool option;
     polymorphic : bool;
     program : bool;
-    user_warns : UserWarn.t option;
+    user_warns : Globnames.extended_global_reference UserWarn.with_qf option;
     canonical_instance : bool;
     typing_flags : Declarations.typing_flags option;
     using : Vernacexpr.section_subset_expr option;
@@ -110,7 +110,7 @@ module DefAttributes = struct
     let (((((((locality, user_warns), polymorphic), program),
          canonical_instance), typing_flags), using),
          reversible), clearbody =
-      parse (locality ++ user_warns ++ polymorphic ++ program ++
+      parse (locality ++ user_warns_with_use_globref_instead ++ polymorphic ++ program ++
              canonical_instance ++ typing_flags ++ using ++
              reversible ++ clearbody)
         f
@@ -607,27 +607,6 @@ let check_name_freshness locality {CAst.loc;v=id} : unit =
   then
     user_err ?loc  (Id.print id ++ str " already exists.")
 
-let start_lemma_com ~typing_flags ~program_mode ~poly ~scope ?clearbody ~kind ?user_warns ?using ?hook ((id, udecl), (bl, t)) =
-  let env0 = Global.env () in
-  let env0 = Environ.update_typing_flags ?typing_flags env0 in
-  let flags = Pretyping.{ all_no_fail_flags with program_mode } in
-  let evd, udecl = Constrintern.interp_univ_decl_opt env0 udecl in
-  let evd, (impls, ((env, ctx), imps)) = Constrintern.interp_context_evars ~program_mode env0 evd bl in
-  let evd, (t', imps') = Constrintern.interp_type_evars_impls ~flags ~impls env evd t in
-  let ids = List.map Context.Rel.Declaration.get_name ctx in
-  let typ = EConstr.it_mkProd_or_LetIn t' ctx in
-  let evd =
-    let inference_hook = if program_mode then Some Declare.Obls.program_inference_hook else None in
-    Pretyping.solve_remaining_evars ?hook:inference_hook flags env0 evd in
-  let evd = Evd.minimize_universes evd in
-  Pretyping.check_evars_are_solved ~program_mode env0 evd;
-  let info = Declare.Info.make ?hook ~poly ~scope ?clearbody ~kind ~udecl ?typing_flags ?user_warns () in
-  let typ = EConstr.to_constr evd typ in
-  Evd.check_univ_decl_early ~poly ~with_obls:false evd udecl [typ];
-  let evd = if poly then evd else Evd.fix_undefined_variables evd in
-  let thm = Declare.CInfo.make ~name:id.CAst.v ~typ ~args:ids ~impargs:(imps @ imps') () in
-  Declare.Proof.start_definition ~info ~cinfo:thm ?using evd
-
 let vernac_definition_hook ~canonical_instance ~local ~poly ~reversible = let open Decls in function
 | Coercion ->
   Some (ComCoercion.add_coercion_hook ~reversible)
@@ -659,19 +638,19 @@ let vernac_definition_name lid local =
     | Discharge -> Dumpglob.dump_definition lid true "var"
     | Global _ -> Dumpglob.dump_definition lid false "def"
   in
-  lid
+  lid.v
 
-let vernac_definition_interactive ~atts (discharge, kind) (lid, pl) bl t =
+let vernac_definition_interactive ~atts (discharge, kind) (lid, udecl) bl t =
   let open DefAttributes in
   let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
     atts.scope, atts.locality, atts.polymorphic, atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
   let canonical_instance, reversible = atts.canonical_instance, atts.reversible in
   let hook = vernac_definition_hook ~canonical_instance ~local ~poly ~reversible kind in
   let name = vernac_definition_name lid scope in
-  start_lemma_com ~typing_flags ~program_mode ~poly ~scope ?clearbody
-    ~kind:(Decls.IsDefinition kind) ?user_warns ?using ?hook ((name, pl), (bl, t))
+  ComDefinition.do_definition_interactive ~typing_flags ~program_mode ~name ~poly ~scope ?clearbody:atts.clearbody
+    ~kind:(Decls.IsDefinition kind) ?user_warns ?using:atts.using ?hook udecl bl t
 
-let vernac_definition ~atts ~pm (discharge, kind) (lid, pl) bl red_option c typ_opt =
+let vernac_definition ~atts ~pm (discharge, kind) (lid, udecl) bl red_option c typ_opt =
   let open DefAttributes in
   let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
      atts.scope, atts.locality, atts.polymorphic, atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
@@ -686,14 +665,14 @@ let vernac_definition ~atts ~pm (discharge, kind) (lid, pl) bl red_option c typ_
       Some (snd (Redexpr.interp_redexp_no_ltac env sigma r)) in
   if program_mode then
     let kind = Decls.IsDefinition kind in
-    ComDefinition.do_definition_program ~pm ~name:name.v
+    ComDefinition.do_definition_program ~pm ~name
       ?clearbody ~poly ?typing_flags ~scope ~kind
-      ?user_warns ?using pl bl red_option c typ_opt ?hook
+      ?user_warns ?using udecl bl red_option c typ_opt ?hook
   else
     let () =
-      ComDefinition.do_definition ~name:name.v
+      ComDefinition.do_definition ~name
         ?clearbody ~poly ?typing_flags ~scope ~kind
-        ?user_warns ?using pl bl red_option c typ_opt ?hook in
+        ?user_warns ?using udecl bl red_option c typ_opt ?hook in
     pm
 
 (* NB: pstate argument to use combinators easily *)
@@ -706,8 +685,10 @@ let vernac_start_proof ~atts kind l =
   List.iter (fun ((id, _), _) -> check_name_freshness scope id) l;
   match l with
   | [] -> assert false
-  | [decl] ->
-    start_lemma_com ~typing_flags ~program_mode ~poly   ~scope ~kind:(Decls.IsProof kind) ?user_warns ?using decl
+  | [({v=name},udecl),(bl,typ)] ->
+    ComDefinition.do_definition_interactive
+      ~typing_flags ~program_mode ~name ~poly ?clearbody ~scope
+      ~kind:(Decls.IsProof kind) ?user_warns ?using udecl bl typ
   | _ ->
     let fix = List.map (fun ((fname, univs), (binders, rtype)) ->
         { fname; binders; rtype; body_def = None; univs; notations = []}) l in
@@ -855,22 +836,21 @@ let primitive_proj =
   | Some t -> return t
   | None -> return (primitive_flag ())
 
+let { Goptions.get = do_auto_prop_lowering } =
+  Goptions.declare_bool_option_and_ref ~key:["Automatic";"Proposition";"Inductives"] ~value:true ()
+
 module Preprocessed_Mind_decl = struct
-  type flags = {
-    template : bool option;
-    udecl : Constrexpr.cumul_univ_decl_expr option;
-    cumulative : bool;
-    poly : bool;
-    finite : Declarations.recursivity_kind;
-  }
+  type flags = ComInductive.flags
   type record = {
     flags : flags;
+    udecl : Constrexpr.cumul_univ_decl_expr option;
     primitive_proj : bool;
     kind : Vernacexpr.inductive_kind;
     records : Record.Ast.t list;
   }
   type inductive = {
     flags : flags;
+    udecl : Constrexpr.cumul_univ_decl_expr option;
     typing_flags : Declarations.typing_flags option;
     private_ind : bool;
     uniform : ComInductive.uniform_inductive_flag;
@@ -910,6 +890,8 @@ let preprocess_inductive_decl ~atts kind indl =
           ++ private_ind ++ typing_flags ++ prim_proj_attr)
         atts)
   in
+  let auto_prop_lowering = do_auto_prop_lowering () in
+  let flags = { ComInductive.template; cumulative; poly; finite; auto_prop_lowering; } in
   if Option.has_some is_defclass then
     (* Definitional class case *)
     let (id, bl, c, l) = Option.get is_defclass in
@@ -929,7 +911,7 @@ let preprocess_inductive_decl ~atts kind indl =
     let recordl = [id, bl, c, None, [f], None] in
     let kind = Class true in
     let records = vernac_record ~template udecl ~cumulative kind ~poly ?typing_flags ~primitive_proj finite recordl in
-    indl, Preprocessed_Mind_decl.(Record { flags = { template; udecl; cumulative; poly; finite; }; primitive_proj; kind; records })
+    indl, Preprocessed_Mind_decl.(Record { flags; udecl; primitive_proj; kind; records })
   else if List.for_all is_record indl then
     (* Mutual record case *)
     let () = match kind with
@@ -973,7 +955,7 @@ let preprocess_inductive_decl ~atts kind indl =
     let kind = match kind with Class _ -> Class false | _ -> kind in
     let recordl = List.map unpack indl in
     let records = vernac_record ~template udecl ~cumulative kind ~poly ?typing_flags ~primitive_proj finite recordl in
-    indl, Preprocessed_Mind_decl.(Record { flags = { template; udecl; cumulative; poly; finite; }; primitive_proj; kind; records })
+    indl, Preprocessed_Mind_decl.(Record { flags; udecl; primitive_proj; kind; records })
   else if List.for_all is_constructor indl then
     (* Mutual inductive case *)
     let () = match kind with
@@ -997,7 +979,7 @@ let preprocess_inductive_decl ~atts kind indl =
     in
     let inductives = List.map unpack indl in
     let uniform = should_treat_as_uniform () in
-    indl, Preprocessed_Mind_decl.(Inductive { flags = { template; udecl; cumulative; poly; finite }; typing_flags; private_ind; uniform; inductives })
+    indl, Preprocessed_Mind_decl.(Inductive { flags; udecl; typing_flags; private_ind; uniform; inductives })
   else
     user_err (str "Mixed record-inductive definitions are not allowed.")
 
@@ -1013,8 +995,7 @@ let dump_inductive indl_for_glob decl =
         | _ -> ())
       indl_for_glob;
     match decl with
-    (* [XXX] EJGA: only [records] used here *)
-    | Record { flags = { template; udecl; cumulative; poly; finite; }; kind; primitive_proj; records } ->
+    | Record { records } ->
       let dump_glob_proj (x, _) = match x with
         | Vernacexpr.(AssumExpr ({loc;v=Name id}, _, _) | DefExpr ({loc;v=Name id}, _, _, _)) ->
           Dumpglob.dump_definition (make ?loc id) false "proj"
@@ -1030,12 +1011,12 @@ let vernac_inductive ~atts kind indl =
   let indl_for_glob, decl = preprocess_inductive_decl ~atts kind indl in
   dump_inductive indl_for_glob decl;
   match decl with
-  | Record { flags = { template; udecl; cumulative; poly; finite; }; kind; primitive_proj; records } ->
+  | Record { flags; kind; udecl; primitive_proj; records } ->
     let _ : _ list =
-      Record.definition_structure ~template udecl kind ~cumulative ~poly ~primitive_proj finite records in
+      Record.definition_structure ~flags udecl kind ~primitive_proj records in
     ()
-  | Inductive { flags = { template; udecl; cumulative; poly; finite; }; typing_flags; private_ind; uniform; inductives } ->
-    ComInductive.do_mutual_inductive ~template udecl inductives ~cumulative ~poly ?typing_flags ~private_ind ~uniform finite
+  | Inductive { flags; udecl; typing_flags; private_ind; uniform; inductives } ->
+    ComInductive.do_mutual_inductive ~flags udecl inductives ?typing_flags ~private_ind ~uniform
 
 let preprocess_inductive_decl ~atts kind indl =
   snd @@ preprocess_inductive_decl ~atts kind indl
@@ -1530,7 +1511,7 @@ let vernac_hints ~atts dbnames h =
   Hints.add_hints ~locality dbnames (ComHints.interp_hints ~poly h)
 
 let vernac_abbreviation ~atts lid x only_parsing =
-  let module_local, user_warns = Attributes.(parse Notations.(module_locality ++ user_warns) atts) in
+  let module_local, user_warns = Attributes.(parse Notations.(module_locality ++ user_warns_with_use_globref_instead) atts) in
   Dumpglob.dump_definition lid false "abbrev";
   Metasyntax.add_abbreviation ~local:module_local user_warns (Global.env()) lid.v x only_parsing
 

@@ -36,7 +36,8 @@ module FlagUtil = struct
     |> Util.list_concat_map (fun p -> [Arg.A "-I"; Arg.Path p])
 
   let findlib_plugin_fixup p =
-    ["number_string_notation"; "zify"; "tauto"; "ssreflect"; "micromega_core"]
+    ["number_string_notation"; "zify"; "tauto"; "ssreflect";
+      "cc_core"; "firstorder_core"; "micromega_core"; "nsatz_core"]
     @ (List.filter (fun s -> not (String.equal s "syntax" || String.equal s "ssr")) p)
 
   (* This can also go when the -I flags are gone, by passing the meta
@@ -123,11 +124,15 @@ module Theory = struct
     (** Coq's logical path *)
     ; implicit : bool
     (** Use -R or -Q *)
+    ; deps : string list;
+    (** Adds as -Q user-contrib/X X *)
     }
 
-  let args { directory; dirname; implicit } =
+  let args { directory; dirname; implicit; deps } =
     let barg = if implicit then "-R" else "-Q" in
     Arg.[ A barg; Path directory; A (String.concat "." dirname) ]
+    @ List.flatten (deps |> List.map (fun dep ->
+        Arg.[A "-Q"; Path (Path.make @@ "user-contrib"^Filename.dir_sep^dep); A dep]))
 
 end
 
