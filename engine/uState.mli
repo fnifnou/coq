@@ -75,9 +75,6 @@ val nf_universes : t -> Constr.t -> Constr.t
 val ugraph : t -> UGraph.t
 (** The current graph extended with the local constraints *)
 
-val initial_graph : t -> UGraph.t
-(** The initial graph with just the declarations of new universes. *)
-
 val is_algebraic : Level.t -> t -> bool
 (** Can this universe be instantiated with an algebraic
     universe (ie it appears in inferred types only). *)
@@ -179,9 +176,9 @@ val merge_sort_context : ?loc:Loc.t -> sideff:bool -> rigid -> t -> UnivGen.sort
 
 val emit_side_effects : Safe_typing.private_constants -> t -> t
 
-val demote_global_univs : Environ.env -> t -> t
+val demote_global_univs : Univ.ContextSet.t -> t -> t
 (** Removes from the uctx_local part of the UState the universes and constraints
-    that are present in the universe graph in the input env (supposedly the
+    that are present in the input constraint set (supposedly the
     global ones) *)
 
 val demote_seff_univs : Univ.Level.Set.t -> t -> t

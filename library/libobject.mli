@@ -149,6 +149,10 @@ module Dyn : Dyn.S
 
 type obj = Dyn.t
 
+module ExportObj : sig
+  type t = { mpl : (open_filter * Names.ModPath.t) list } [@@unboxed]
+end
+
 type algebraic_objects =
   | Objs of t list
   | Ref of ModPath.t * Mod_subst.substitution
@@ -158,7 +162,7 @@ and t =
   | ModuleTypeObject of Id.t * substitutive_objects
   | IncludeObject of algebraic_objects
   | KeepObject of Id.t * t list
-  | ExportObject of { mpl : (open_filter * ModPath.t) list }
+  | ExportObject of ExportObj.t
   | AtomicObject of obj
 
 and substitutive_objects = MBId.t list * algebraic_objects
@@ -202,6 +206,27 @@ type discharged_obj
 
 val discharge_object : obj -> discharged_obj option
 val rebuild_object : discharged_obj -> obj
+
+type locality = Local | Export | SuperGlobal
+
+(** Object with semi-static scoping: the scoping depends on the given
+    [locality] not the rest of the object.
+
+    It is up to the caller of [add_leaf] to produce sensible errors if
+    a value which cannot be discharged is given with non Local
+    locality.
+
+    If [subst] is [None] non [Local] values are [Keep], otherwise [Substitute].
+
+    [Export] values are only imported with shallow imports (depth = 1).
+
+    [cat] only matters when importing, ie only for [Export] values.
+*)
+val object_with_locality : ?stage:Summary.Stage.t -> ?cat:category -> string ->
+  cache:('a -> unit) ->
+  subst:(Mod_subst.substitution * 'a -> 'a) option ->
+  discharge:('a -> 'a) ->
+  (locality * 'a, locality * 'a, locality * 'a) object_declaration
 
 (** Higher-level API for objects with fixed scope.
 

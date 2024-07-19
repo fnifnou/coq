@@ -119,6 +119,10 @@ type obj = Dyn.t (* persistent dynamic objects *)
       a earlier module + substitution).
 *)
 
+module ExportObj = struct
+  type t = { mpl : (open_filter * Names.ModPath.t) list } [@@unboxed]
+end
+
 type algebraic_objects =
   | Objs of t list
   | Ref of Names.ModPath.t * Mod_subst.substitution
@@ -128,7 +132,7 @@ and t =
   | ModuleTypeObject of Names.Id.t * substitutive_objects
   | IncludeObject of algebraic_objects
   | KeepObject of Names.Id.t * t list
-  | ExportObject of { mpl : (open_filter * Names.ModPath.t) list }
+  | ExportObject of ExportObj.t
   | AtomicObject of obj
 
 and substitutive_objects = Names.MBId.t list * algebraic_objects
@@ -277,3 +281,31 @@ let superglobal_object_nodischarge ?stage s ~cache ~subst =
 let superglobal_object ?stage s ~cache ~subst ~discharge =
   { (superglobal_object_nodischarge ?stage s ~cache ~subst) with
     discharge_function = discharge }
+
+type locality = Local | Export | SuperGlobal
+
+let object_with_locality ?stage ?cat s ~cache ~subst ~discharge =
+  { (default_object ?stage s) with
+    cache_function = (fun (_,v) -> cache v);
+    load_function = (fun _ (locality,v) -> match locality with
+        | Local -> assert false
+        | Export -> ()
+        | SuperGlobal -> cache v);
+    open_function = simple_open ?cat (fun i (locality,v) -> match locality with
+        | Local -> assert false
+        | Export -> begin if Int.equal i 1 then cache v else () end
+        | SuperGlobal -> ());
+    subst_function = (match subst with
+        | None -> fun _ -> assert false (* Keep *)
+        | Some subst -> fun (s,(locality,v)) -> locality, subst (s,v);
+      );
+    classify_function = (fun (locality, _) -> match locality with
+        | Local -> Dispose
+        | Export | SuperGlobal -> if Option.has_some subst then Substitute else Keep);
+    discharge_function =
+      (fun (locality,v) -> match locality with
+         | Local -> None
+         | Export | SuperGlobal ->
+           let v = discharge v in
+           Some (locality, v));
+  }

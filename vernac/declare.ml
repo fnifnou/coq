@@ -390,7 +390,7 @@ let register_side_effect (c, body, role) =
   let () = register_constant c Decls.(IsProof Theorem) Locality.ImportDefaultBehavior in
   match role with
   | None -> ()
-  | Some (Evd.Schema (ind, kind)) -> DeclareScheme.declare_scheme kind (ind,c)
+  | Some (Evd.Schema (ind, kind)) -> DeclareScheme.declare_scheme SuperGlobal kind (ind,c)
 
 let get_roles export eff =
   let map (c, body) =
@@ -909,6 +909,10 @@ let declare_definition_core ~info ~cinfo ~opaque ~obls ~body ?using sigma =
 
 let declare_definition ~info ~cinfo ~opaque ~body ?using sigma =
   declare_definition_core ~obls:[] ~info ~cinfo ~opaque ~body ?using sigma |> fst
+
+let declare_definition_full ~info ~cinfo ~opaque ~body ?using sigma =
+  let c, uctx = declare_definition_core ~obls:[] ~info ~cinfo ~opaque ~body ?using sigma in
+  c, if info.poly then Univ.ContextSet.empty else UState.context_set uctx
 
 let prepare_obligations ~name ?types ~body env sigma =
   let env = Global.env () in
