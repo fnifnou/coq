@@ -570,6 +570,9 @@ ici on importe derive.
 puis on importe les derrivations de bases : map, lens, param1, inductions, eqb, etc.
 toutes ces derivations sont codé en elpi.
 
+
+interface avec coq : src/elpi build ins
+
 ** DONE Aller voir dans paramcoq comment c est fait
 
 paramcoq/src/abstraction.mlg : search Parametricity
@@ -675,6 +678,13 @@ https://coq.inria.fr/doc/V8.18.0/refman/proofs/writing-proofs/reasoning-inductiv
      le fichier boolean equality, si 
      rendre le Sort optionnel dans le parseur car pas de sens pour equality (si induction ou autre on met Type par default)
 
+
+
+vernac_scheme et vernac_scheme_equality 424
+les fusionner, garder que la premiere dans laquelle le nom du scheme est generalisé le nom du scheme type est generalisé
+
+scheme_type va devenir une liste de string
+
 ** TODO g_vernac
 
 Quelle syntaxe on va donner pour les schemas elpi
@@ -691,6 +701,11 @@ Scheme Inductiv_for_sort InType -> SchemeInductiv, Some InType -> "_rest"
 
 declare_mutual_scheme_object(["Elpi";"Param1"],None)
                             (["Induction"],Some InType) -> "._rect"
+
+
+
+scheme_type va devenir une beaucoup plus general : nimportequelle liste d'identificateur.
+va devenir une liste d'id, et aller voir les choses en consequence
 
 ** make rapide
 
@@ -710,8 +725,9 @@ il faut mettre un _ devant le nom de la fonction pour resoudre ce pb. (fantome)
 3) Qu'est ce qu'un Hook : Declare.Hook
     /home/fnifnou/Documents/stageCoq/coq/vernac/declare.ml
     utilisé dans /home/fnifnou/Documents/stageCoq/coq/_build_ci/paramcoq/src/declare_translation.ml 97
-4) Qu'est ce au'un Declare.OblState.t
+4) Qu'est ce qu'un Declare.OblState.t
      /home/fnifnou/Documents/stageCoq/coq/vernac/declare.ml
+-> list des choses qui restent a trouver.
 5) Pour etre sur d'avoir bien comprit : 
    - on defini tous les schemes existant au lancement de coqtop et en les stockant dans scheme_object_table
    - Lorsque l'on defini un type inductif, on va chercher le scheme dans scheme_object_table puis on l'applique à notre type inductif avec define_individual_scheme ou define_mutual_scheme, et on le stock dans side_effects.
@@ -739,3 +755,5 @@ shemas utilisés automatiquement.
 
 
 
+* rendez vous
+** 

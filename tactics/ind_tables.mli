@@ -46,12 +46,12 @@ type individual_scheme_object_function =
 *)
 
 val declare_mutual_scheme_object : string ->
-  ?suff:string ->
+  ?suff:(Names.Id.t option -> string) ->
   ?deps:(Environ.env -> MutInd.t -> scheme_dependency list) ->
   mutual_scheme_object_function -> mutual scheme_kind
 
 val declare_individual_scheme_object : string ->
-  ?suff:string ->
+  ?suff:(Names.Id.t option -> string) ->
   ?deps:(Environ.env -> inductive -> scheme_dependency list) ->
   individual_scheme_object_function ->
   individual scheme_kind

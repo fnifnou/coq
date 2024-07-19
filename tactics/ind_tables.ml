@@ -53,13 +53,18 @@ type scheme_object_function =
 
 On n'y ajoute pas les schemes des inductifs def par l'utilisateur. *)
 let scheme_object_table =
-  (Hashtbl.create 17 : (string, string * scheme_object_function) Hashtbl.t)
-(*(Hashtbl.create 17 : (pattern, string * scheme_object_function) Hashtbl.t) *)
+  (Hashtbl.create 17 : (string, (Names.Id.t option -> string) * scheme_object_function) Hashtbl.t)
+(* (Hashtbl.create 17 : (string, string * scheme_object_function) Hashtbl.t) *)
 
-let declare_scheme_object key ?(suff=key) f =
+let make_suff key =
+  (function
+     | None -> key
+     | Some id -> (Id.to_string id) ^ "_" ^ key)
+
+let declare_scheme_object key ?(suff=(make_suff key)) f =
   let () =
-    if not (Id.is_valid ("ind_" ^ suff)) then
-      CErrors.user_err Pp.(str ("Illegal induction scheme suffix: " ^ suff))
+    if not (Id.is_valid ("ind_" ^ suff None)) then
+      CErrors.user_err Pp.(str ("Illegal induction scheme suffix: " ^ suff None))
   in
   if Hashtbl.mem scheme_object_table key then
     CErrors.user_err
@@ -176,7 +181,7 @@ let rec define_individual_scheme_base ?loc kind suff f ~internal idopt (mind,i a
   let mib = Global.lookup_mind mind in
   let id = match idopt with
     | Some id -> id
-    | None -> add_suffix mib.mind_packets.(i).mind_typename ("_"^suff) in
+    | None -> Id.of_string (suff (Some mib.mind_packets.(i).mind_typename)) in
   let role = Evd.Schema (ind, kind) in
   let const, neff = define ?loc internal role id c (Declareops.inductive_is_polymorphic mib) ctx in
   let eff = Evd.concat_side_effects neff eff in
@@ -197,7 +202,7 @@ and define_mutual_scheme_base ?(locmap=Locmap.default None) kind suff f ~interna
   let mib = Global.lookup_mind mind in
   let ids = Array.init (Array.length mib.mind_packets) (fun i ->
       try Int.List.assoc i names
-      with Not_found -> add_suffix mib.mind_packets.(i).mind_typename ("_"^suff)) in
+      with Not_found -> Id.of_string (suff (Some mib.mind_packets.(i).mind_typename))) in
   let fold i effs id cl =
     let role = Evd.Schema ((mind, i), kind)in
     let loc = Locmap.lookup ~locmap (mind,i) in
