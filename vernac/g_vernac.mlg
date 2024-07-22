@@ -527,17 +527,17 @@ GRAMMAR EXTEND Gram
       | id = identref; ":="; kind = scheme_kind -> { (Some id,kind) } ] ]
   ;
   scheme_kind:
-    [ [sch_type = scheme_type; "for"; sch_qualid = smart_global; IDENT "Sort"; sch_sort = sort_family
+    [ [sch_type = IDENT; "for"; sch_qualid = smart_global; IDENT "Sort"; sch_sort = sort_family
       -> { {sch_type; sch_qualid; sch_sort} }
     ] ]
   ;
-  scheme_type:
+  (* scheme_type:
     [ [ IDENT "Induction" -> { SchemeInduction }
       | IDENT "Minimality" -> { SchemeMinimality }
       | IDENT "Elimination" -> { SchemeElimination }
       | IDENT "Case" -> { SchemeCase }
     ] ]
-  ;
+  ; *)
   (* Various Binders *)
 (*
   (* ... without coercions *)

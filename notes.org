@@ -659,9 +659,35 @@ elimschemes : build_case_analysis_scheme_in_type
      
      Lors de la declaration d'un inductif par l'utilisateur, les schemes de cet inductifs sont declaré dans les sides_effects et non dans le scheme_object_table.
 
-** TODO vernacentries
-     trois vernac scheme diff : inductif, egalite ou combinné
-     on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
+** TODO g_vernac
+
+Quelle syntaxe on va donner pour les schemas elpi
+
+     vernac/g_vernac.mlg
+     ligne 281 et 283 à intergrer à la ligne 280
+     donc on va modif scheme
+
+PHOTO
+clé(string) -> string list * sort.family option
+suffix(string) -> pattern "._rect"
+
+Scheme Inductiv_for_sort InType -> SchemeInductiv, Some InType -> "_rest"
+
+declare_mutual_scheme_object(["Elpi";"Param1"],None)
+                            (["Induction"],Some InType) -> "._rect"
+
+
+
+scheme_type va devenir beaucoup plus general : nimportequelle liste d'identificateur.
+va devenir une liste d'id, et aller voir les choses à modifier en consequence
+
+#+begin_src coq
+Inductive nat : Set :=  O : nat | S : nat -> nat.
+
+Scheme Induction for nat Sort Set.
+Scheme Minimality for nat Sort Type.
+Scheme Minimality for nat Sort Prop.
+#+end_src
 
 ** TODO vernacexpr
 
@@ -685,27 +711,13 @@ les fusionner, garder que la premiere dans laquelle le nom du scheme est general
 
 scheme_type va devenir une liste de string
 
-** TODO g_vernac
+** TODO vernacentries
+     trois vernac scheme diff : inductif, egalite ou combinné
+     on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
 
-Quelle syntaxe on va donner pour les schemas elpi
+** ppvernac
 
-     vernac/g_vernac.mlg
-     ligne 281 et 283 à intergrer à la ligne 280
-     donc on va modif scheme
-
-PHOTO
-clé(string) -> string list * sort.family option
-suffix(string) -> pattern "._rect"
-
-Scheme Inductiv_for_sort InType -> SchemeInductiv, Some InType -> "_rest"
-
-declare_mutual_scheme_object(["Elpi";"Param1"],None)
-                            (["Induction"],Some InType) -> "._rect"
-
-
-
-scheme_type va devenir une beaucoup plus general : nimportequelle liste d'identificateur.
-va devenir une liste d'id, et aller voir les choses en consequence
+425
 
 ** make rapide
 
@@ -752,8 +764,3 @@ tres rudimentaire pour l'instant, on ne peut pas modifier grand chose.
 ** 4eme niveau : 
 shemas utilisés automatiquement.
 
-
-
-
-* rendez vous
-** 

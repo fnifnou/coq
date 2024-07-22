@@ -327,12 +327,14 @@ let declare_sym_scheme ?loc ind =
 
 (* Boolean on scheme_type cheking if it considered dependent *)
 let sch_isdep = function
-| SchemeInduction  | SchemeElimination -> true
-| SchemeMinimality | SchemeCase        -> false
+| "Induction"  | "Elimination" -> true
+| "Minimality" | "Case"        -> false
+| _ -> CErrors.user_err Pp.(str "Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.")
 
 let sch_isrec = function
-| SchemeInduction | SchemeMinimality -> true
-| SchemeElimination | SchemeCase -> false
+| "Induction"   | "Minimality" -> true
+| "Elimination" | "Case" -> false
+| _ -> CErrors.user_err Pp.(str "Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.")
 
 (* Generate suffix for scheme given a target sort *)
 let scheme_suffix_gen {sch_type; sch_sort} sort =
