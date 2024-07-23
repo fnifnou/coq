@@ -283,10 +283,6 @@ GRAMMAR EXTEND Gram
       | IDENT "Let"; "CoFixpoint"; corecs = LIST1 cofix_definition SEP "with" ->
           { VernacCoFixpoint (DoDischarge, corecs) }
       | IDENT "Scheme"; l = LIST1 scheme SEP "with" -> { VernacScheme l }
-      | IDENT "Scheme"; IDENT "Equality"; IDENT "for" ; id = smart_global ->
-          { VernacSchemeEquality (SchemeEquality,id) }
-      | IDENT "Scheme"; IDENT "Boolean"; IDENT "Equality"; IDENT "for" ; id = smart_global ->
-          { VernacSchemeEquality (SchemeBooleanEquality,id) }
       | IDENT "Combined"; IDENT "Scheme"; id = identref; IDENT "from";
               l = LIST1 identref SEP "," -> { VernacCombinedScheme (id, l) }
       | IDENT "Register"; g = global; "as"; quid = qualid ->
@@ -532,12 +528,11 @@ GRAMMAR EXTEND Gram
       | kind = scheme_kind -> { (None,kind) } ] ]
   ;
   scheme_kind:
-    [ [sch_type = ident_list; "for"; sch_qualid = smart_global; IDENT "Sort"; sch_sort = sort_family
-      -> { {sch_type; sch_qualid; sch_sort} }
-    ] ]
+    [ [ sch_type = ident_list; "for"; sch_qualid = smart_global; IDENT "Sort"; sf = sort_family -> { {sch_type; sch_qualid; sch_sort = Some sf } }
+      | sch_type = ident_list; "for"; sch_qualid = smart_global -> { {sch_type; sch_qualid; sch_sort = None } } ] ]
   ;
   ident_list:
-    [ [ ids = LIST1 IDENT SEP "." -> {ids} ] ]
+    [ [ ids = LIST1 IDENT -> {ids} ] ]
   ;
   (* scheme_type:
     [ [ IDENT "Induction" -> { SchemeInduction }

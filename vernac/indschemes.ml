@@ -329,25 +329,25 @@ let declare_sym_scheme ?loc ind =
 let sch_isdep = function
 | ["Induction"]  | ["Elimination"] -> true
 | ["Minimality"] | ["Case"]        -> false
-| _ -> CErrors.user_err Pp.(str "Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.")
+| _ -> CErrors.user_err Pp.(str "6 Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.")
 
 let sch_isrec = function
 | ["Induction"]   | ["Minimality"] -> true
 | ["Elimination"] | ["Case"] -> false
-| _ -> CErrors.user_err Pp.(str "Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.")
+| _ -> CErrors.user_err Pp.(str "5 Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.")
 
 (* Generate suffix for scheme given a target sort *)
 let scheme_suffix_gen {sch_type; sch_sort} sort =
   (* The _ind/_rec_/case suffix *)
   let ind_suffix = match sch_isrec sch_type, sch_sort with
-    | true  , InSProp
-    | true  , InProp  -> "_ind"
+    | true  , Some InSProp
+    | true  , Some InProp  -> "_ind"
     | true  , _       -> "_rec"
     | false , _       -> "_case" in
   (* SProp and Type have an auxillary ending to the _ind suffix *)
   let aux_suffix = match sch_sort with
-    | InSProp -> "s"
-    | InType  -> "t"
+    | Some InSProp -> "s"
+    | Some InType  -> "t"
     | _       -> "" in
   (* Some schemes are deliminated with _dep or no_dep *)
   let dep_suffix = match sch_isdep sch_type , sort with
@@ -368,9 +368,11 @@ let smart_ind qid =
    eliminator and its sort. *)
 let name_and_process_scheme env = function
   | (Some id, {sch_type; sch_qualid; sch_sort}) ->
-    (id, sch_isdep sch_type, smart_ind sch_qualid, sch_sort)
+    let tmp = match sch_sort with Some s -> s | None -> CErrors.user_err Pp.(str "Schemes Induction​|Minimality​|Elimination​|Case takes in parameter \"Sort Type|Prop|SProp|Set\" ") in
+    (id, sch_isdep sch_type, smart_ind sch_qualid, tmp)
   | (None, ({sch_type; sch_qualid; sch_sort} as sch)) ->
     (* If no name has been provided, we build one from the types of the ind requested *)
+    let tmp = match sch_sort with Some s -> s | None -> CErrors.user_err Pp.(str "Schemes Induction​|Minimality​|Elimination​|Case takes in parameter \"Sort Type|Prop|SProp|Set\" ") in
     let ind = smart_ind sch_qualid in
     let sort_of_ind =
       Indrec.pseudo_sort_family_for_elim ind
@@ -379,7 +381,7 @@ let name_and_process_scheme env = function
     let suffix = scheme_suffix_gen sch sort_of_ind in
     let newid = Nameops.add_suffix (Nametab.basename_of_global (Names.GlobRef.IndRef ind)) suffix in
     let newref = CAst.make newid in
-    (newref, sch_isdep sch_type, ind, sch_sort)
+    (newref, sch_isdep sch_type, ind, tmp)
 
 let do_mutual_induction_scheme ?(force_mutual=false) env ?(isrec=true) l =
   let sigma, inst =
@@ -437,22 +439,34 @@ let do_mutual_induction_scheme ?(force_mutual=false) env ?(isrec=true) l =
   let lrecnames = List.map (fun ({CAst.v},_,_,_) -> v) l in
   Declare.fixpoint_message None lrecnames
 
-let do_scheme env l =
-  let isrec = match l with
-    | [_, sch] -> sch_isrec sch.sch_type
-    | _ ->
-      if List.for_all (fun (_,sch) -> sch_isrec sch.sch_type) l
-      then true
-      else CErrors.user_err Pp.(str "Mutually defined schemes should be recursive.")
-  in
-  let lnamedepindsort = List.map (name_and_process_scheme env) l in
-  do_mutual_induction_scheme env ~isrec lnamedepindsort
-
 let do_scheme_equality ?locmap sch id =
   let mind,_ = smart_ind id in
   let dec = match sch with SchemeBooleanEquality -> false | SchemeEquality -> true in
   declare_beq_scheme ?locmap mind;
   if dec then declare_eq_decidability ?locmap mind
+
+let do_scheme env l =
+  let tmp = match l with
+  | [_, sch] -> begin match sch.sch_type with ["Equality"] -> do_scheme_equality SchemeEquality sch.sch_qualid; true
+                                      | "Boolean"::"Equality"::[] -> do_scheme_equality SchemeBooleanEquality sch.sch_qualid; true
+                                      | _ -> false end
+  | _ -> if List.for_all (fun (_,sch) -> begin match sch.sch_type with ["Equality"] -> do_scheme_equality SchemeEquality sch.sch_qualid; true
+                                                                     | "Boolean"::"Equality"::[] -> do_scheme_equality SchemeBooleanEquality sch.sch_qualid; true
+                                                                     | _ -> false end) l
+    then true
+    else false
+  in
+  if not tmp then
+    let isrec = match l with
+      | [_, sch] -> sch_isrec sch.sch_type
+      | _ ->
+        if List.for_all (fun (_,sch) -> sch_isrec sch.sch_type) l
+        then true
+        else CErrors.user_err Pp.(str "Mutually defined schemes should be recursive.")
+    in
+    let lnamedepindsort = List.map (name_and_process_scheme env) l in
+    do_mutual_induction_scheme env ~isrec lnamedepindsort
+
 
 (**********************************************************************)
 (* Combined scheme *)

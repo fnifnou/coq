@@ -260,7 +260,7 @@ type equality_scheme_type =
 type scheme = {
   sch_type : string list ;
   sch_qualid : Libnames.qualid Constrexpr.or_by_notation ;
-  sch_sort : Sorts.family ;
+  sch_sort : Sorts.family option ;
 }
 
 type section_subset_expr =

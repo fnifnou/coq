@@ -686,8 +686,14 @@ Inductive nat : Set :=  O : nat | S : nat -> nat.
 
 Scheme Induction for nat Sort Set.
 Scheme Minimality for nat Sort Type.
-Scheme haha := Minimality for nat Sort Prop.
+Scheme haha := Case for nat Sort Prop.
+Scheme Minimality for nat Sort Type with Elimination for nat Sort Type. (* should be recurciv *)
+
+Scheme Equality for nat.
+Scheme Boolean Equality for nat.
 #+end_src
+
+/!\ BUG : là de base sur coq, on ne peut pas definir Equality apres Boolean Equality et vice versa.
 
 /home/fnifnou/Documents/stageCoq/coq/doc/tools/docgram/common.edit_mlg : 
 309 : IDENT
