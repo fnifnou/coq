@@ -686,8 +686,12 @@ Inductive nat : Set :=  O : nat | S : nat -> nat.
 
 Scheme Induction for nat Sort Set.
 Scheme Minimality for nat Sort Type.
-Scheme Minimality for nat Sort Prop.
+Scheme haha := Minimality for nat Sort Prop.
 #+end_src
+
+/home/fnifnou/Documents/stageCoq/coq/doc/tools/docgram/common.edit_mlg : 
+309 : IDENT
+819 : ident
 
 ** TODO vernacexpr
 

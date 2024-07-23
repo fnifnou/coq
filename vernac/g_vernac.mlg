@@ -234,7 +234,12 @@ let test_cumul_univ_decl =
   let lk_list_variance_ident = lk_list (lk_kw "+" <+> lk_kw "*" <+> lk_kw "=" <+> lk_ident) in
   to_entry "test_cumul_univ_decl" (lk_ident_list >> lk_kw "|" >> lk_list_variance_ident >> (lk_kw "+" <+> lk_empty) >> (lk_kw "|" <+> lk_kw "|}"))
 
-
+let test_scheme_ident =
+  let open Pcoq.Lookahead in
+  to_entry "test_scheme_ident" begin
+    lk_ident >> lk_kw ":="
+  end
+  
 }
 
 (* Gallina declarations *)
@@ -523,13 +528,16 @@ GRAMMAR EXTEND Gram
   ;
   (* Inductive schemes *)
   scheme:
-    [ [ kind = scheme_kind -> { (None,kind) }
-      | id = identref; ":="; kind = scheme_kind -> { (Some id,kind) } ] ]
+    [ [ test_scheme_ident; id = identref; ":="; kind = scheme_kind -> { (Some id,kind) }
+      | kind = scheme_kind -> { (None,kind) } ] ]
   ;
   scheme_kind:
-    [ [sch_type = IDENT; "for"; sch_qualid = smart_global; IDENT "Sort"; sch_sort = sort_family
+    [ [sch_type = ident_list; "for"; sch_qualid = smart_global; IDENT "Sort"; sch_sort = sort_family
       -> { {sch_type; sch_qualid; sch_sort} }
     ] ]
+  ;
+  ident_list:
+    [ [ ids = LIST1 IDENT SEP "." -> {ids} ] ]
   ;
   (* scheme_type:
     [ [ IDENT "Induction" -> { SchemeInduction }

@@ -258,7 +258,7 @@ type equality_scheme_type =
 
   (* The data of a Scheme decleration *)
 type scheme = {
-  sch_type : string ;
+  sch_type : string list ;
   sch_qualid : Libnames.qualid Constrexpr.or_by_notation ;
   sch_sort : Sorts.family ;
 }

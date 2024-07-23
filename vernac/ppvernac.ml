@@ -422,10 +422,10 @@ let pr_onescheme (idop, {sch_type; sch_qualid; sch_sort}) =
     | Some id -> pr_lident id ++ str " :="
     | None -> str "" in
   let str_scheme = match sch_type with
-    | "Induction" ->  keyword "Induction for"
-    | "Minimality" ->  keyword "Minimality for"
-    | "Elimination" ->  keyword "Elimination for"
-    | "Case" -> keyword "Case for"
+    | ["Induction"] ->  keyword "Induction for"
+    | ["Minimality"] ->  keyword "Minimality for"
+    | ["Elimination"] ->  keyword "Elimination for"
+    | ["Case"] -> keyword "Case for"
     | _ -> CErrors.user_err Pp.(str "Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.") in
   hov 0 str_identifier ++ spc () ++ hov 0 (str_scheme ++ spc() ++ pr_smart_global sch_qualid)
     ++ spc () ++ hov 0 (keyword "Sort" ++ spc() ++ Sorts.pr_sort_family sch_sort)
