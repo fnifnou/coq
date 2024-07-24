@@ -695,6 +695,10 @@ Scheme Boolean Equality for nat.
 
 /!\ BUG : là de base sur coq, on ne peut pas definir Equality apres Boolean Equality et vice versa.
 
+On ne peut pas vraiment ajouter un ident à Equality car il defini 2 egalités (on ne peux pas les nomé pareil)
+Equality : nat_beq is defined; nat_eq_dec is defined
+Boolean Equality : nat_beq is defined
+
 /home/fnifnou/Documents/stageCoq/coq/doc/tools/docgram/common.edit_mlg : 
 309 : IDENT
 819 : ident
@@ -721,6 +725,16 @@ les fusionner, garder que la premiere dans laquelle le nom du scheme est general
 
 scheme_type va devenir une liste de string
 
+Est ce que on creer un module Scheme : 
+- Attributes : 
+  - Name
+  - definition
+- Methodes :
+  - is_rec
+  - is dep
+  - ...
+Pour pouvoir garder un typage fort et ne pas passer par des strings.
+
 ** TODO vernacentries
      trois vernac scheme diff : inductif, egalite ou combinné
      on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
@@ -736,6 +750,8 @@ make check : compile en bytecode donc bcp plus vite
 
 Si on declare des fonctions qui ne sont pas utilisées, alors cela fait une erreure de compilation.
 il faut mettre un _ devant le nom de la fonction pour resoudre ce pb. (fantome)
+
+rlwrap
 
 * Questions
 
