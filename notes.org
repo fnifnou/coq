@@ -384,7 +384,7 @@ Coq indeed features an extensible parser, which TTBOMK is mainly the work of Hug
 
 ** Equations derive
 
-#+begin_src
+#+begin_src coq
 From Equations Require Import Equations.
 
 Equations neg (b : bool) : bool :=
@@ -748,10 +748,19 @@ Pour pouvoir garder un typage fort et ne pas passer par des strings.
 make world : tres long
 make check : compile en bytecode donc bcp plus vite
 
+cd test-suite
+make -j 8
+make report
+
 Si on declare des fonctions qui ne sont pas utilisées, alors cela fait une erreure de compilation.
 il faut mettre un _ devant le nom de la fonction pour resoudre ce pb. (fantome)
 
 rlwrap
+
+vernacinterp : 194 interp_gen
+toutes les commandes 
+
+ctrl c esc r : retouve phrase du buffer
 
 * Questions
 
@@ -790,3 +799,44 @@ tres rudimentaire pour l'instant, on ne peut pas modifier grand chose.
 ** 4eme niveau : 
 shemas utilisés automatiquement.
 
+* rdv
+** ident svheme equality / boolean
+faire un choix
+
+** indschemes.ml
+none -> comporte comme type qd y a pas de Sort sch_sort
+371 375
+
+** ppvernac : 432
+spc() ++ Sorts.pr_sort_family tmp
+pr_opt : verifier celui qui met un espace ou rien
+pr_opt_spc :  
+pour ne pas faire le test du none some
+utiliser pr_list keyword applique a la liste des mots clefs, ou autre pour afficher sch_type, rajouter le keyword "for"
+
+** faire un tableau avec les schemes existant et changer tous les match with avec des iter.
+dans ind tables
+
+** centraliser plus de choses dans ind_tables : 
+actuelllement il y a plusieur sort de schema : interne et schema scheme, e y en a qui sont les deux comme equality et boolean equality
+une tech pour faire des schemes : do scheme
+
+deux fichiers qui creer des rect : un en interne et l'autre avec la commande scheme.
+
+
+-> dans la table declare_scheme_object : que la clef soit une liste de string comme Equality ou boolean equality.
+
+define_individual_scheme_base : kind devient une liste de string
+
+
+** indschemes :  
+do_scheme va bcp changer, il restera plus que do mutual scheme
+et on va supprimer so scheme equality
+
+modif eqdecscheme pour modifier la depedance et ajouter beq
+
+do mutual induction scheme  disparait car géré automatiquement par indtables.
+verifier les msg
+
+declare_beq_scheme_gen devient declare scheme gen
+define mutual scheme : c est just ca que va faire do scheme, avec peut etre le try declare scheme autour.
