@@ -418,18 +418,14 @@ let pr_and_type_binders_arg bl =
   pr_binders_arg bl
 
 let pr_onescheme (idop, {sch_type; sch_qualid; sch_sort}) =
-  let tmp = match sch_sort with Some s -> s | None -> CErrors.user_err Pp.(str "2 Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.") in
   let str_identifier = match idop with
     | Some id -> pr_lident id ++ str " :="
     | None -> str "" in
-  let str_scheme = match sch_type with
-    | ["Induction"] ->  keyword "Induction for"
-    | ["Minimality"] ->  keyword "Minimality for"
-    | ["Elimination"] ->  keyword "Elimination for"
-    | ["Case"] -> keyword "Case for"
-    | _ -> CErrors.user_err Pp.(str "1 Scheme takes in parameter Induction​|Minimality​|Elimination​|Case or self-defined scheme.") in
+  let str_scheme = keyword (List.fold_left (fun init s -> init ^ s ) "" sch_type) ++ keyword "for" in
+  let sort_opt = match sch_sort with Some s -> keyword "Sort" ++ spc() ++ Sorts.pr_sort_family s
+                                   | None -> keyword "" in
   hov 0 str_identifier ++ spc () ++ hov 0 (str_scheme ++ spc() ++ pr_smart_global sch_qualid)
-    ++ spc () ++ hov 0 (keyword "Sort" ++ spc() ++ Sorts.pr_sort_family tmp)
+    ++ spc () ++ hov 0 (sort_opt)
 
 let pr_equality_scheme_type sch id =
   let str_scheme = match sch with

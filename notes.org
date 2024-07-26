@@ -187,7 +187,7 @@ $ dune exec coqide
 #+end_src
 
 depuis coq : 
-#+begin_src ocaml
+#+begin_src coq
 From Equations Require Import Equations.
 
 Equations neg (b : bool) : bool :=
@@ -244,7 +244,7 @@ it_mkProd : meme chose mais avec un forall
 
 2. Je n'ai pas comprit cette construction : Coq-Equations/doc/equations_intro.v
    ligne 222
-   #+begin_src
+   #+begin_src coq
    Equations equal (n m : nat) : { n = m } + { n <> m } :=
    equal O O := left eq_refl ;
    equal (S n) (S m) with equal n m := {
@@ -253,7 +253,7 @@ it_mkProd : meme chose mais avec un forall
    equal x y := right _.
    #+end_src
    ligne 306
-   #+begin_src
+   #+begin_src coq
    Equations eqt {A} (x y z : A) (p : x = y) (q : y = z) : x = z :=
    eqt x ?(x) ?(x) eq_refl eq_refl := eq_refl.
    #+end_src 
@@ -420,7 +420,11 @@ A statement is no more a contract, changing its proof may impact users
 Ameliorer tout ca en utilisant les Fix ety les match with qui eux fonctionnent tres bien sur tous les types inductifs.
 
 De base : 
-#+begin_src
+#+begin_src coq
+From elpi.apps Require Import derive.std.
+
+derive Inductive peano := Zero | Succ (p : peano).
+
 Inductive rtree A : Type := | Leaf (a : A) | Node (l : list (rtree A)).
 
 (* associated induction principle is the following one *)
@@ -436,7 +440,7 @@ Even a very basic recursive program such as an equality test cannot be proved co
 In order to strengthen them one needs quite some extra boilerplate, such as the *derivation of the unary parametricity translation* of the data types involved
 
 Page 6 :
-#+begin_src 
+#+begin_src coq
 Lemma nat_eq_correct : ∀ n, is_nat n → eq_axiom nat nat_eq n :=
    nat_induction (eq_axiom nat nat_eq) PO PS.
 #+end_src
@@ -659,7 +663,7 @@ elimschemes : build_case_analysis_scheme_in_type
      
      Lors de la declaration d'un inductif par l'utilisateur, les schemes de cet inductifs sont declaré dans les sides_effects et non dans le scheme_object_table.
 
-** TODO g_vernac
+** DONE g_vernac
 
 Quelle syntaxe on va donner pour les schemas elpi
 
@@ -703,7 +707,7 @@ Boolean Equality : nat_beq is defined
 309 : IDENT
 819 : ident
 
-** TODO vernacexpr
+** DONE vernacexpr
 
      Generaliser la syntaxe de scheme equality pour qu on puisse faire la meme chose que avec induction : avoir un ident
 
@@ -735,7 +739,7 @@ Est ce que on creer un module Scheme :
   - ...
 Pour pouvoir garder un typage fort et ne pas passer par des strings.
 
-** TODO vernacentries
+** DONE vernacentries
      trois vernac scheme diff : inductif, egalite ou combinné
      on va combiner ces trois constructions pour faire une construction Scheme qui implemente les 3
 
@@ -799,15 +803,17 @@ tres rudimentaire pour l'instant, on ne peut pas modifier grand chose.
 ** 4eme niveau : 
 shemas utilisés automatiquement.
 
-* rdv
-** ident sheme equality / boolean
+* Solo 4
+** TODO ident := Equality / Boolean
 faire un choix
 
-** indschemes.ml
+** TODO None -> Sort Type
+indschemes.ml
 none -> comporte comme type qd y a pas de Sort sch_sort
 371 375
 
-** ppvernac : 432
+** TODO corriger ppvernac
+ppvernac : 432
 spc() ++ Sorts.pr_sort_family tmp
 pr_opt ou pr_opt_spc : verifier celui qui met un espace ou rien
 
@@ -815,10 +821,13 @@ pour ne pas faire le test du none some
 utiliser pr_list keyword applique a la liste des mots clefs, ou autre pour afficher sch_type, rajouter le keyword "for"
 (affiche si Some, affiche pas si None, tout automatiquement)
 
-** faire un tableau avec les schemes existant et changer tous les match with avec des iter.
-dans ind tables
+-> Supprimer pr_equality_scheme_type
 
-** centraliser plus de choses dans ind_tables : 
+** TODO Tableau des schemes
+faire un tableau avec les schemes existant et changer tous les match with avec des iter.
+dans ind_tables
+
+** TODO centraliser plus de choses dans ind_tables : 
 actuelllement il y a plusieur sort de schema : interne et schema scheme, e y en a qui sont les deux comme equality et boolean equality
 une tech pour faire des schemes : do scheme
 
@@ -829,8 +838,7 @@ deux fichiers qui creer des rect : un en interne et l'autre avec la commande sch
 
 define_individual_scheme_base : kind devient une liste de string
 
-
-** indschemes :  
+** TODO indschemes 
 do_scheme va bcp changer, il restera plus que do mutual scheme
 et on va supprimer so scheme equality
 
