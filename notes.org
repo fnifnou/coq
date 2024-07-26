@@ -800,7 +800,7 @@ tres rudimentaire pour l'instant, on ne peut pas modifier grand chose.
 shemas utilisés automatiquement.
 
 * rdv
-** ident svheme equality / boolean
+** ident sheme equality / boolean
 faire un choix
 
 ** indschemes.ml
@@ -809,10 +809,11 @@ none -> comporte comme type qd y a pas de Sort sch_sort
 
 ** ppvernac : 432
 spc() ++ Sorts.pr_sort_family tmp
-pr_opt : verifier celui qui met un espace ou rien
-pr_opt_spc :  
+pr_opt ou pr_opt_spc : verifier celui qui met un espace ou rien
+
 pour ne pas faire le test du none some
 utiliser pr_list keyword applique a la liste des mots clefs, ou autre pour afficher sch_type, rajouter le keyword "for"
+(affiche si Some, affiche pas si None, tout automatiquement)
 
 ** faire un tableau avec les schemes existant et changer tous les match with avec des iter.
 dans ind tables
