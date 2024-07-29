@@ -807,21 +807,21 @@ shemas utilisés automatiquement.
 ** TODO ident := Equality / Boolean
 faire un choix
 
-** TODO None -> Sort Type
-indschemes.ml
-none -> comporte comme type qd y a pas de Sort sch_sort
-371 375
-
 ** DOING corriger ppvernac
-- [ ] ppvernac : 432
+- [X] ppvernac : 432
 spc() ++ Sorts.pr_sort_family tmp
 pr_opt ou pr_opt_spc : verifier celui qui met un espace ou rien
 
-- [ ] pour ne pas faire le test du none some
+- [X] pour ne pas faire le test du none some
 utiliser pr_list keyword applique a la liste des mots clefs, ou autre pour afficher sch_type, rajouter le keyword "for"
 (affiche si Some, affiche pas si None, tout automatiquement)
 
 - [ ] Supprimer pr_equality_scheme_type
+
+** TODO None -> Sort Type
+indschemes.ml
+none -> comporte comme type qd y a pas de Sort sch_sort
+371 375
 
 ** TODO Tableau des schemes
 faire un tableau avec les schemes existant et changer tous les match with avec des iter.
