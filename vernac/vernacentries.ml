@@ -360,7 +360,9 @@ let print_registered_schemes () =
     pr_global (ConstRef c) ++ str " registered as " ++ str kind ++ str " for " ++ pr_global (IndRef ind)
   in
   let pr_schemes_of_ind (ind, schemes) =
-    prlist_with_sep fnl (pr_one_scheme ind) (CList.Map.bindings schemes)
+    let tmp = CList.Map.bindings schemes in
+    let tmpp = List.map (fun (a,b) -> (List.fold_left (fun i s -> i ^ s) "" a,b)) tmp in
+    prlist_with_sep fnl (pr_one_scheme ind) tmpp
   in
   hov 0 (prlist_with_sep fnl pr_schemes_of_ind (Indmap.bindings schemes))
 
