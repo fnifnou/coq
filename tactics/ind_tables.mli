@@ -45,21 +45,21 @@ type individual_scheme_object_function =
     inductive's name.
 *)
 
-val declare_mutual_scheme_object : string ->
+val declare_mutual_scheme_object : string list ->
   ?suff:(Names.Id.t option -> string) ->
   ?deps:(Environ.env -> MutInd.t -> scheme_dependency list) ->
   mutual_scheme_object_function -> mutual scheme_kind
 
-val declare_individual_scheme_object : string ->
+val declare_individual_scheme_object : string list->
   ?suff:(Names.Id.t option -> string) ->
   ?deps:(Environ.env -> inductive -> scheme_dependency list) ->
   individual_scheme_object_function ->
   individual scheme_kind
 
-val is_declared_scheme_object : string -> bool
+val is_declared_scheme_object : string list -> bool
 (** Is the string used as the name of a [scheme_kind]? *)
 
-val scheme_kind_name : _ scheme_kind -> string
+val scheme_kind_name : _ scheme_kind -> string list
 (** Name of a [scheme_kind]. Can be used to register with DeclareScheme. *)
 
 (** Force generation of a (mutually) scheme with possibly user-level names *)

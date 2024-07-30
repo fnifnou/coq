@@ -31,9 +31,9 @@ type mutual_scheme_object_function =
 type individual_scheme_object_function =
   Environ.env -> handle -> inductive -> constr Evd.in_evar_universe_context
 
-type 'a scheme_kind = string
+type 'a scheme_kind = string list
 
-let pr_scheme_kind = Pp.str
+let pr_scheme_kind = Pp.prlist Pp.str
 
 (**********************************************************************)
 (* The table of scheme building functions *)
@@ -53,13 +53,15 @@ type scheme_object_function =
 
 On n'y ajoute pas les schemes des inductifs def par l'utilisateur. *)
 let scheme_object_table =
-  (Hashtbl.create 17 : (string, (Names.Id.t option -> string) * scheme_object_function) Hashtbl.t)
+  (Hashtbl.create 17 : (string list, (Names.Id.t option -> string) * scheme_object_function) Hashtbl.t)
 (* (Hashtbl.create 17 : (string, string * scheme_object_function) Hashtbl.t) *)
 
+let key_str key = List.fold_left (fun init s -> init ^ s) "" key
+    
 let make_suff key =
   (function
-     | None -> key
-     | Some id -> (Id.to_string id) ^ "_" ^ key)
+     | None -> (key_str key)
+     | Some id -> (Id.to_string id) ^ "_" ^ (key_str key))
 
 let declare_scheme_object key ?(suff=(make_suff key)) f =
   let () =
@@ -68,7 +70,7 @@ let declare_scheme_object key ?(suff=(make_suff key)) f =
   in
   if Hashtbl.mem scheme_object_table key then
     CErrors.user_err
-      Pp.(str "Scheme object " ++ str key ++ str " already declared.")
+      Pp.(str "Scheme object " ++ str (key_str key) ++ str " already declared.")
   else begin
     Hashtbl.add scheme_object_table key (suff,f);
     key
@@ -82,7 +84,7 @@ let declare_individual_scheme_object key ?suff ?deps f =
 
 let is_declared_scheme_object key = Hashtbl.mem scheme_object_table key
 
-let scheme_kind_name (key : _ scheme_kind) : string = key
+let scheme_kind_name (key : _ scheme_kind) : string list = key
 
 (**********************************************************************)
 (* Defining/retrieving schemes *)
@@ -109,20 +111,21 @@ let redeclare_schemes eff =
       let _ = DeclareScheme.lookup_scheme kind ind in
       accu
     with Not_found ->
-      let old = try String.Map.find kind accu with Not_found -> [] in
-      String.Map.add kind ((ind, c) :: old) accu
+      let old = try CList.Map.find kind accu with Not_found -> [] in
+      CList.Map.add kind ((ind, c) :: old) accu
   in
-  let schemes = Cmap.fold fold eff.Evd.seff_roles String.Map.empty in
+  let schemes = Cmap.fold fold eff.Evd.seff_roles CList.Map.empty in
   let iter kind defs = List.iter (DeclareScheme.declare_scheme SuperGlobal kind) defs in
-  String.Map.iter iter schemes
+  CList.Map.iter iter schemes
 
 let local_lookup_scheme eff kind ind = match lookup_scheme kind ind with
 | Some _ as ans -> ans
 | None ->
   let exception Found of Constant.t in
   let iter c role = match role with
-  | Evd.Schema (i, k) ->
-    if String.equal k kind && Ind.UserOrd.equal i ind then raise (Found c)
+    | Evd.Schema (i, k) ->
+      let tmp = if (CList.compare Stdlib.compare k kind == 0) then true else false in
+      if tmp && Ind.UserOrd.equal i ind then raise (Found c)
   in
   (* Inefficient O(n), but the number of locally declared schemes is small and
      this is very rarely called *)

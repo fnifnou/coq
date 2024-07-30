@@ -515,7 +515,7 @@ type evar_flags =
   }
 
 type side_effect_role =
-| Schema of inductive * string
+| Schema of inductive * string list
 
 type side_effects = {
   seff_private : Safe_typing.private_constants;

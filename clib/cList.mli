@@ -458,3 +458,10 @@ module type MonoS = sig
   val remove_assoc : elt -> (elt * 'a) list -> (elt * 'a) list
   val mem_assoc_sym : elt -> ('a * elt) list -> bool
 end
+
+
+module Set : CSet.ExtS with type elt = string t
+
+
+module Map : CMap.ExtS with type key = string t and module Set := Set
+

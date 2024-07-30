@@ -357,10 +357,11 @@ let print_registered () =
 let print_registered_schemes () =
   let schemes = DeclareScheme.all_schemes() in
   let pr_one_scheme ind (kind, c) =
-    pr_global (ConstRef c) ++ str " registered as " ++ str kind ++ str " for " ++ pr_global (IndRef ind)
+    let tmp = List.fold_left (fun i s -> i ^ s) "" kind in
+    pr_global (ConstRef c) ++ str " registered as " ++ str tmp ++ str " for " ++ pr_global (IndRef ind)
   in
   let pr_schemes_of_ind (ind, schemes) =
-    prlist_with_sep fnl (pr_one_scheme ind) (CString.Map.bindings schemes)
+    prlist_with_sep fnl (pr_one_scheme ind) (CList.Map.bindings schemes)
   in
   hov 0 (prlist_with_sep fnl pr_schemes_of_ind (Indmap.bindings schemes))
 
@@ -2114,6 +2115,7 @@ let vernac_register ~atts qid r =
       | ConstRef c -> c
       | _ -> CErrors.user_err ?loc:qid.loc Pp.(str "Register Scheme: expecing a constant.")
     in
+    (* let tmp = List.fold_left (fun i s -> i ^ s) "" scheme_kind in *)
     let scheme_kind_s = Libnames.string_of_qualid scheme_kind in
     let () = if not (Ind_tables.is_declared_scheme_object scheme_kind_s) then
         warn_unknown_scheme_kind ?loc:scheme_kind.loc scheme_kind
