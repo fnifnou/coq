@@ -103,37 +103,37 @@ let optimize_non_type_induction_scheme kind dep sort env _handle ind =
     build_induction_scheme_in_type env dep sort ind
 
 let rect_dep =
-  declare_individual_scheme_object "rect_dep"
+  declare_individual_scheme_object ["rect";"dep"]
     (fun env _ x -> build_induction_scheme_in_type env true InType x)
 
 let rec_dep =
-  declare_individual_scheme_object "rec_dep"
+  declare_individual_scheme_object ["rec";"dep"]
     (optimize_non_type_induction_scheme rect_dep true InSet)
 
 let ind_dep =
-  declare_individual_scheme_object "ind_dep"
+  declare_individual_scheme_object ["ind";"dep"]
     (optimize_non_type_induction_scheme rec_dep true InProp)
 
 let sind_dep =
-  declare_individual_scheme_object "sind_dep"
+  declare_individual_scheme_object ["sind";"dep"]
     (fun env _ x -> build_induction_scheme_in_type env true InSProp x)
 
 let rect_nodep =
-  declare_individual_scheme_object "rect_nodep"
+  declare_individual_scheme_object ["rect";"nodep"]
     (fun env _ x -> build_induction_scheme_in_type env false InType x)
 
 let rec_nodep =
-  declare_individual_scheme_object "rec_nodep"
+  declare_individual_scheme_object ["rec";"nodep"]
     (optimize_non_type_induction_scheme rect_nodep false InSet)
 
 let ind_nodep =
-  declare_individual_scheme_object "ind_nodep"
+  declare_individual_scheme_object ["ind";"nodep"]
     (optimize_non_type_induction_scheme rec_nodep false InProp)
 
 let sind_nodep =
-  declare_individual_scheme_object "sind_nodep"
+  declare_individual_scheme_object ["sind";"nodep"]
     (fun env _ x -> build_induction_scheme_in_type env false InSProp x)
-
+    
 let elim_scheme ~dep ~to_kind =
   match dep, to_kind with
   | false, InSProp -> sind_nodep
@@ -157,17 +157,18 @@ let build_case_analysis_scheme_in_type env dep sort ind =
   EConstr.Unsafe.to_constr c, Evd.evar_universe_context sigma
 
 let case_dep =
-  declare_individual_scheme_object "case_dep"
+  declare_individual_scheme_object ["case";"dep"]
     (fun env _ x -> build_case_analysis_scheme_in_type env true InType x)
 
 let case_nodep =
-  declare_individual_scheme_object "case_nodep"
+  declare_individual_scheme_object ["case";"nodep"]
     (fun env _ x -> build_case_analysis_scheme_in_type env false InType x)
 
 let casep_dep =
-  declare_individual_scheme_object "casep_dep"
+  declare_individual_scheme_object ["casep";"dep"]
     (fun env _ x -> build_case_analysis_scheme_in_type env true InProp x)
 
 let casep_nodep =
-  declare_individual_scheme_object "casep_nodep"
+  declare_individual_scheme_object ["casep";"nodep"]
     (fun env _ x -> build_case_analysis_scheme_in_type env false InProp x)
+    
