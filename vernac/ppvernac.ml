@@ -1242,7 +1242,7 @@ let pr_synpure_vernac_expr v =
     return (
       hov 2
         (keyword "Register" ++ spc() ++ keyword "Scheme" ++ spc() ++ pr_qualid qid ++ spc () ++ str "as"
-         ++ spc () ++ prlist pr_qualid scheme_kind ++ spc() ++ str "for" ++ spc() ++ pr_qualid inductive)
+         ++ spc () ++ Pp.prlist Pp.str scheme_kind ++ spc() ++ str "for" ++ spc() ++ pr_qualid inductive)
     )
   | VernacRegister (qid, RegisterInline) ->
     return (
