@@ -1077,9 +1077,6 @@ let vernac_scheme l =
       Option.iter (fun lid -> Dumpglob.dump_definition lid false "def") lid) l;
   Indschemes.do_scheme (Global.env ()) l
 
-let vernac_scheme_equality ?locmap sch id =
-  Indschemes.do_scheme_equality ?locmap sch id
-
 (* [XXX] locmap unused here *)
 let vernac_combined_scheme lid l ~locmap =
   (* XXX why does this take idents and not qualids *)
@@ -2429,10 +2426,6 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
     vtdefault(fun () ->
         unsupported_attributes atts;
         vernac_scheme l)
-  | VernacSchemeEquality (sch,id) ->
-    vtdefault(fun () ->
-        unsupported_attributes atts;
-        vernac_scheme_equality sch id ~locmap:(Ind_tables.Locmap.default loc))
   | VernacCombinedScheme (id, l) ->
     vtdefault(fun () ->
         unsupported_attributes atts;
