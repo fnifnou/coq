@@ -231,7 +231,7 @@ let build_sym_scheme env _handle ind =
   c, UState.of_context_set ctx
 
 let sym_scheme_kind =
-  declare_individual_scheme_object "sym_internal"
+  declare_individual_scheme_object ["sym";"internal"]
   build_sym_scheme
 
 (**********************************************************************)
@@ -304,7 +304,7 @@ let build_sym_involutive_scheme env handle ind =
   in (c, UState.of_context_set ctx)
 
 let sym_involutive_scheme_kind =
-  declare_individual_scheme_object "sym_involutive"
+  declare_individual_scheme_object ["sym";"involutive"]
   ~deps:(fun _ ind -> [SchemeIndividualDep (ind, sym_scheme_kind)])
   build_sym_involutive_scheme
 
@@ -694,7 +694,7 @@ let build_r2l_rew_scheme dep env ind k =
   let sigma, k = Evd.fresh_sort_in_family ~rigid:UnivRigid sigma k in
   let (sigma, c) = build_case_analysis_scheme env sigma indu dep k in
   let (c, _) = Indrec.eval_case_analysis c in
-  EConstr.Unsafe.to_constr c, Evd.evar_universe_context sigma
+  EConstr.Unsafe.to_constr c, Evd.ustate sigma
 
 (**********************************************************************)
 (* Register the rewriting schemes                                     *)
@@ -707,7 +707,7 @@ let build_r2l_rew_scheme dep env ind k =
 (* with H:I p1..pn a1..an in Gamma                                    *)
 (**********************************************************************)
 let rew_l2r_dep_scheme_kind =
-  declare_individual_scheme_object "rew_r_dep"
+  declare_individual_scheme_object ["rew";"r";"dep"]
   ~deps:(fun _ ind -> [
     SchemeIndividualDep (ind, sym_scheme_kind);
     SchemeIndividualDep (ind, sym_involutive_scheme_kind);
@@ -721,7 +721,7 @@ let rew_l2r_dep_scheme_kind =
 (* or   H:I b1..bn a1..an in Gamma (symmetric case)                   *)
 (**********************************************************************)
 let rew_r2l_dep_scheme_kind =
-  declare_individual_scheme_object "rew_dep"
+  declare_individual_scheme_object ["rew";"dep"]
   (fun env _ ind -> build_r2l_rew_scheme true env ind InType)
 
 (**********************************************************************)
@@ -731,7 +731,7 @@ let rew_r2l_dep_scheme_kind =
 (* or   H:I b1..bn a1..an in Gamma (symmetric case)                   *)
 (**********************************************************************)
 let rew_r2l_forward_dep_scheme_kind =
-  declare_individual_scheme_object "rew_fwd_dep"
+  declare_individual_scheme_object ["rew";"fwd";"dep"]
   (fun env _ ind -> build_r2l_forward_rew_scheme true env ind InType)
 
 (**********************************************************************)
@@ -741,7 +741,7 @@ let rew_r2l_forward_dep_scheme_kind =
 (* with H:I p1..pn a1..an in Gamma                                    *)
 (**********************************************************************)
 let rew_l2r_forward_dep_scheme_kind =
-  declare_individual_scheme_object "rew_fwd_r_dep"
+  declare_individual_scheme_object ["rew";"fwd";"r";"dep"]
   (fun env _ ind -> build_l2r_forward_rew_scheme true env ind InType)
 
 (**********************************************************************)
@@ -754,7 +754,7 @@ let rew_l2r_forward_dep_scheme_kind =
 (* standard form of schemes in Coq)                                   *)
 (**********************************************************************)
 let rew_l2r_scheme_kind =
-  declare_individual_scheme_object "rew_r"
+  declare_individual_scheme_object ["rew";"r"]
   (fun env _ ind -> fix_r2l_forward_rew_scheme env
      (build_r2l_forward_rew_scheme false env ind InType))
 
@@ -765,7 +765,7 @@ let rew_l2r_scheme_kind =
 (* introducing commutative cuts, we adopt it                          *)
 (**********************************************************************)
 let rew_r2l_scheme_kind =
-  declare_individual_scheme_object "rew"
+  declare_individual_scheme_object ["rew"]
   (fun env _ ind -> build_r2l_rew_scheme false env ind InType)
 
 (* End of rewriting schemes *)
@@ -850,7 +850,7 @@ let build_congr env (eq,refl,ctx) ind =
             mkApp (mkVar varf, [|lift (mip.mind_nrealargs+3) b|])|])|])))))))
   in c, UState.of_context_set ctx
 
-let congr_scheme_kind = declare_individual_scheme_object "congr"
+let congr_scheme_kind = declare_individual_scheme_object ["congr"]
   (fun env _ ind ->
      (* May fail if equality is not defined *)
    build_congr env (get_coq_eq env UnivGen.empty_sort_context) ind)

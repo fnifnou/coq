@@ -854,7 +854,7 @@ let build_beq_scheme env handle kn =
   res, uctx
 
 let beq_scheme_kind =
-  Ind_tables.declare_mutual_scheme_object "beq"
+  Ind_tables.declare_mutual_scheme_object ["beq"]
   ~deps:build_beq_scheme_deps
   build_beq_scheme
 
@@ -1172,7 +1172,7 @@ let make_bl_scheme env handle mind =
   let bl_goal = compute_bl_goal env handle (ind,u) lnamesparrec nparrec in
   let bl_goal = EConstr.of_constr bl_goal in
   let poly = Declareops.inductive_is_polymorphic mib in
-  let uctx = if poly then Evd.evar_universe_context (fst (Typing.sort_of env (Evd.from_ctx uctx) bl_goal)) else uctx in
+  let uctx = if poly then Evd.ustate (fst (Typing.sort_of env (Evd.from_ctx uctx) bl_goal)) else uctx in
   let (ans, _, _, _, uctx) = Declare.build_by_tactic ~poly env ~uctx ~typ:bl_goal
     (compute_bl_tact handle (ind, EConstr.EInstance.make u) lnamesparrec nparrec)
   in
@@ -1184,7 +1184,7 @@ let make_bl_scheme_deps env ind =
   Ind_tables.SchemeMutualDep (ind, beq_scheme_kind) :: List.map map inds
 
 let bl_scheme_kind =
-  Ind_tables.declare_mutual_scheme_object "dec_bl"
+  Ind_tables.declare_mutual_scheme_object ["dec_bl"]
   ~deps:make_bl_scheme_deps
   make_bl_scheme
 
@@ -1303,7 +1303,7 @@ let make_lb_scheme env handle mind =
   let lb_goal = compute_lb_goal env handle (ind,u) lnamesparrec nparrec in
   let lb_goal = EConstr.of_constr lb_goal in
   let poly = Declareops.inductive_is_polymorphic mib in
-  let uctx = if poly then Evd.evar_universe_context (fst (Typing.sort_of env (Evd.from_ctx uctx) lb_goal)) else uctx in
+  let uctx = if poly then Evd.ustate (fst (Typing.sort_of env (Evd.from_ctx uctx) lb_goal)) else uctx in
   let (ans, _, _, _, ctx) = Declare.build_by_tactic ~poly env ~uctx ~typ:lb_goal
     (compute_lb_tact handle ind lnamesparrec nparrec)
   in
@@ -1315,7 +1315,7 @@ let make_lb_scheme_deps env ind =
   Ind_tables.SchemeMutualDep (ind, beq_scheme_kind) :: List.map map inds
 
 let lb_scheme_kind =
-  Ind_tables.declare_mutual_scheme_object "dec_lb"
+  Ind_tables.declare_mutual_scheme_object ["dec";"lb"]
   ~deps:make_lb_scheme_deps
   make_lb_scheme
 
@@ -1496,14 +1496,14 @@ let make_eq_decidability env handle mind =
     Inductive.inductive_nonrec_rec_paramdecls (mib,u) in
   let dec_goal = EConstr.of_constr (compute_dec_goal env (ind,u) lnamesparrec nparrec) in
   let poly = Declareops.inductive_is_polymorphic mib in
-  let uctx = if poly then Evd.evar_universe_context (fst (Typing.sort_of env (Evd.from_ctx uctx) dec_goal)) else uctx in
+  let uctx = if poly then Evd.ustate (fst (Typing.sort_of env (Evd.from_ctx uctx) dec_goal)) else uctx in
   let (ans, _, _, _, ctx) = Declare.build_by_tactic ~poly env ~uctx
       ~typ:dec_goal (compute_dec_tact handle (ind,u) lnamesparrec nparrec)
   in
   ([|ans|], ctx)
 
 let eq_dec_scheme_kind =
-  Ind_tables.declare_mutual_scheme_object "eq_dec"
+  Ind_tables.declare_mutual_scheme_object ["eq";"dec"]
   ~deps:(fun _ ind -> [SchemeMutualDep (ind, bl_scheme_kind); SchemeMutualDep (ind, lb_scheme_kind)])
   make_eq_decidability
 

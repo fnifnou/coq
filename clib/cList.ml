@@ -1006,3 +1006,16 @@ module type MonoS = sig
   val remove_assoc : elt -> (elt * 'a) list -> (elt * 'a) list
   val mem_assoc_sym : elt -> ('a * elt) list -> bool
 end
+
+
+module Self =
+struct
+  type t = string list
+  let compare = compare Stdlib.compare
+end
+
+module Set = CSet.Make(Self)
+module Map = CMap.Make(Self)
+
+let _tmp = Map.singleton
+

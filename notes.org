@@ -822,6 +822,19 @@ utiliser pr_list keyword applique a la liste des mots clefs, ou autre pour affic
 
 ** DOING centraliser plus de choses dans ind_tables 
 
+** TODO Tableau des schemes
+faire un tableau avec les schemes existant et changer tous les match with avec des iter.
+dans ind_tables
+
+#+begin_src coq
+Inductive nat : Set :=  O : nat | S : nat -> nat.
+
+Register Scheme nat_rect as rec_dep for hoho.
+
+#+end_src
+
+** TODO centraliser plus de choses dans ind_tables : 
+
 actuelllement il y a plusieur sort de schema : interne et schema scheme, e y en a qui sont les deux comme equality et boolean equality
 une tech pour faire des schemes : do scheme
 deux fichiers qui creer des rect : un en interne et l'autre avec la commande scheme.
