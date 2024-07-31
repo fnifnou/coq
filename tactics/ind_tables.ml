@@ -56,7 +56,7 @@ let scheme_object_table =
   (Hashtbl.create 17 : (string list, (Names.Id.t option -> string) * scheme_object_function) Hashtbl.t)
 (* (Hashtbl.create 17 : (string, string * scheme_object_function) Hashtbl.t) *)
 
-let key_str key = List.fold_left (fun init s -> init ^ s) "" key
+let key_str key = String.concat "_" key
     
 let make_suff key =
   (function

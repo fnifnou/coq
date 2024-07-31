@@ -421,7 +421,7 @@ let pr_onescheme (idop, {sch_type; sch_qualid; sch_sort}) =
   let str_identifier = match idop with
     | Some id -> pr_lident id ++ str " :="
     | None -> str "" in
-  let str_scheme = keyword (List.fold_left (fun init s -> init ^ s ) "" sch_type) ++ keyword "for" in
+  let str_scheme = keyword (String.concat "_" sch_type) ++ keyword "for" in
   let sort_opt = match sch_sort with Some s -> keyword "Sort" ++ spc() ++ Sorts.pr_sort_family s
                                    | None -> keyword "" in
   hov 0 str_identifier ++ spc () ++ hov 0 (str_scheme ++ spc() ++ pr_smart_global sch_qualid)

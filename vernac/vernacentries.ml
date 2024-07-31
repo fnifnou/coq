@@ -361,7 +361,7 @@ let print_registered_schemes () =
   in
   let pr_schemes_of_ind (ind, schemes) =
     let tmp = CList.Map.bindings schemes in
-    let tmpp = List.map (fun (a,b) -> (List.fold_left (fun i s -> i ^ s) "" a,b)) tmp in
+    let tmpp = List.map (fun (a,b) -> (String.concat "_" a,b)) tmp in
     prlist_with_sep fnl (pr_one_scheme ind) tmpp
   in
   hov 0 (prlist_with_sep fnl pr_schemes_of_ind (Indmap.bindings schemes))
