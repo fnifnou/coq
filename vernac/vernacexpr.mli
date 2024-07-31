@@ -422,7 +422,6 @@ type nonrec synpure_vernac_expr =
   | VernacFixpoint of discharge * fixpoints_expr
   | VernacCoFixpoint of discharge * cofixpoints_expr
   | VernacScheme of (lident option * scheme) list
-  | VernacSchemeEquality of equality_scheme_type * Libnames.qualid Constrexpr.or_by_notation
   | VernacCombinedScheme of lident * lident list
   | VernacUniverse of lident list
   | VernacConstraint of univ_constraint_expr list
