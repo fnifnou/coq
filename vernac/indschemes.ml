@@ -447,14 +447,18 @@ let do_scheme_equality ?locmap sch id =
 
 let do_scheme env l =
   let tmp = match l with
-  | [_, sch] -> begin match sch.sch_type with ["Equality"] -> do_scheme_equality SchemeEquality sch.sch_qualid; true
-                                      | "Boolean"::"Equality"::[] -> do_scheme_equality SchemeBooleanEquality sch.sch_qualid; true
-                                      | _ -> false end
-  | _ -> if List.for_all (fun (_,sch) -> begin match sch.sch_type with ["Equality"] -> do_scheme_equality SchemeEquality sch.sch_qualid; true
-                                                                     | "Boolean"::"Equality"::[] -> do_scheme_equality SchemeBooleanEquality sch.sch_qualid; true
-                                                                     | _ -> false end) l
-    then true
-    else false
+    | [_, sch] ->
+      begin match sch.sch_type with
+      | ["Equality"] -> do_scheme_equality SchemeEquality sch.sch_qualid; true
+      | "Boolean"::"Equality"::[] -> do_scheme_equality SchemeBooleanEquality sch.sch_qualid; true
+      | _ -> false
+      end
+    | _ -> List.for_all (fun (_,sch) ->
+        begin match sch.sch_type with
+        | ["Equality"] -> do_scheme_equality SchemeEquality sch.sch_qualid; true
+        | "Boolean"::"Equality"::[] -> do_scheme_equality SchemeBooleanEquality sch.sch_qualid; true
+        | _ -> false
+        end) l
   in
   if not tmp then
     let isrec = match l with

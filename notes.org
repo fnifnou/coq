@@ -805,9 +805,11 @@ shemas utilisés automatiquement.
 
 * Solo 4
 ** TODO ident := Equality / Boolean
+
 faire un choix
 
-** DOING corriger ppvernac
+** DONE corriger ppvernac
+
 - [X] ppvernac : 432
 spc() ++ Sorts.pr_sort_family tmp
 pr_opt ou pr_opt_spc : verifier celui qui met un espace ou rien
@@ -816,31 +818,30 @@ pr_opt ou pr_opt_spc : verifier celui qui met un espace ou rien
 utiliser pr_list keyword applique a la liste des mots clefs, ou autre pour afficher sch_type, rajouter le keyword "for"
 (affiche si Some, affiche pas si None, tout automatiquement)
 
-- [ ] Supprimer pr_equality_scheme_type
+- [X] Supprimer pr_equality_scheme_type
 
-** TODO None -> Sort Type
+** DOING centraliser plus de choses dans ind_tables 
+
+actuelllement il y a plusieur sort de schema : interne et schema scheme, e y en a qui sont les deux comme equality et boolean equality
+une tech pour faire des schemes : do scheme
+deux fichiers qui creer des rect : un en interne et l'autre avec la commande scheme.
+
+- [X] dans la table declare_scheme_object : que la clef soit une liste de string comme Equality ou boolean equality.
+define_individual_scheme_base : kind devient une liste de string
+
+- [ ] Tableau des schemes
+faire un tableau avec les schemes existant et changer tous les match with avec des iter.
+dans ind_tables
+
+** TODO indschemes 
+
+- [ ] None -> Sort Type
 indschemes.ml
 none -> comporte comme type qd y a pas de Sort sch_sort
 371 375
 
-** TODO Tableau des schemes
-faire un tableau avec les schemes existant et changer tous les match with avec des iter.
-dans ind_tables
-
-** TODO centraliser plus de choses dans ind_tables : 
-actuelllement il y a plusieur sort de schema : interne et schema scheme, e y en a qui sont les deux comme equality et boolean equality
-une tech pour faire des schemes : do scheme
-
-deux fichiers qui creer des rect : un en interne et l'autre avec la commande scheme.
-
-
--> dans la table declare_scheme_object : que la clef soit une liste de string comme Equality ou boolean equality.
-
-define_individual_scheme_base : kind devient une liste de string
-
-** TODO indschemes 
-do_scheme va bcp changer, il restera plus que do mutual scheme
-et on va supprimer so scheme equality
+- [ ] do_scheme va bcp changer, il restera plus que do_mutual_scheme
+et on va supprimer do_scheme_equality
 
 modif eqdecscheme pour modifier la depedance et ajouter beq
 
@@ -849,3 +850,16 @@ verifier les msg
 
 declare_beq_scheme_gen devient declare scheme gen
 define mutual scheme : c est just ca que va faire do scheme, avec peut etre le try declare scheme autour.
+
+** Questions 
+
+1) Probleme pour designer un schema par une string list plutot qu'un qualid
+
+2) indschemes : isrec et isdep
+   on peut dire qu'il faut les passer en parametre de declare_individual_scheme_object ? 
+   est ce pertinant pour tous les schemes ou option et valeur par defaud false ?
+   je creer une map dans indscheme qui, pour chaque scheme declaré, se souvient de isrec et isdep pour celui ci 
+
+3) 
+
+4) 
