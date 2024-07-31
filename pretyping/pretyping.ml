@@ -181,7 +181,7 @@ let level_name sigma = function
   | GSet -> Some (sigma, Univ.Level.set)
   | GUniv u -> Some (sigma, u)
   | GRawUniv u ->
-    let sigma = try Evd.add_global_univ sigma u with UGraph.AlreadyDeclared -> sigma in
+    let sigma = try Evd.add_forgotten_univ sigma u with UGraph.AlreadyDeclared -> sigma in
     Some (sigma, u)
   | GLocalUniv l ->
     let sigma, u = universe_level_name sigma l in
@@ -1588,7 +1588,7 @@ let all_no_fail_flags = default_inference_flags false
 
 let ise_pretype_gen_ctx flags env sigma lvar kind c =
   let sigma, c, _ = ise_pretype_gen flags env sigma lvar kind c in
-  c, Evd.evar_universe_context sigma
+  c, Evd.ustate sigma
 
 (** Entry points of the high-level type synthesis algorithm *)
 

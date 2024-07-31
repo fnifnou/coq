@@ -167,7 +167,7 @@ let show_top_evars ~proof =
 let show_universes ~proof =
   let Proof.{goals;sigma} = Proof.data proof in
   let ctx = Evd.universe_context_set (Evd.minimize_universes sigma) in
-  Termops.pr_evar_universe_context (Evd.evar_universe_context sigma) ++ fnl () ++
+  UState.pr (Evd.ustate sigma) ++ fnl () ++
   v 1 (str "Normalized constraints:" ++ cut() ++
        Univ.pr_universe_context_set (Termops.pr_evd_level sigma) ctx)
 
@@ -2536,13 +2536,13 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
 
   | VernacRemoveOption (key,v) ->
     vtdefault(fun () ->
-      unsupported_attributes atts;
-      Vernacoptions.vernac_remove_option key v)
+      let local = Attributes.parse Attributes.hint_locality atts in
+      Vernacoptions.vernac_remove_option local key v)
 
   | VernacAddOption (key,v) ->
     vtdefault(fun () ->
-      unsupported_attributes atts;
-      Vernacoptions.vernac_add_option key v)
+      let local = Attributes.parse Attributes.hint_locality atts in
+      Vernacoptions.vernac_add_option local key v)
 
   | VernacMemOption (key,v) ->
     vtdefault(fun () ->

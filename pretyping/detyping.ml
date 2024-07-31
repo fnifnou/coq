@@ -270,11 +270,12 @@ module PrintingInductiveMake =
     module Set = Indset
     let encode = Test.encode
     let subst subst obj = subst_ind subst obj
+    let check_local _ _ = ()
+    let discharge (i:t) = i
     let printer ind = Nametab.pr_global_env Id.Set.empty (GlobRef.IndRef ind)
     let key = ["Printing";Test.field]
     let title = Test.title
     let member_message x = Test.member_message (printer x)
-    let synchronous = true
   end
 
 module PrintingCasesIf =
@@ -359,7 +360,7 @@ let { Goptions.get = print_relevances } =
 
 let detype_level_name sigma l =
   if Univ.Level.is_set l then GSet else
-    match UState.id_of_level (Evd.evar_universe_context sigma) l with
+    match UState.id_of_level (Evd.ustate sigma) l with
     | Some id -> GLocalUniv (CAst.make id)
     | None -> GUniv l
 
@@ -367,7 +368,7 @@ let detype_level sigma l =
   UNamed (detype_level_name sigma l)
 
 let detype_qvar sigma q =
-  match UState.id_of_qvar (Evd.evar_universe_context sigma) q with
+  match UState.id_of_qvar (Evd.ustate sigma) q with
   | Some id -> GLocalQVar (CAst.make (Name id))
   | None -> GQVar q
 
