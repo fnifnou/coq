@@ -230,6 +230,8 @@ let build_sym_scheme env _handle ind =
   in
   c, UState.of_context_set ctx
 
+(* Symmetry
+garder le internal pr le suffix, l enlever pour la clefs *)
 let sym_scheme_kind =
   declare_individual_scheme_object ["sym";"internal"]
   build_sym_scheme
@@ -303,8 +305,12 @@ let build_sym_involutive_scheme env handle ind =
                [|mkApp(eqrefl,[|applied_ind_C;cstr (nrealargs+1)|])|])))))
   in (c, UState.of_context_set ctx)
 
+(* add suffix *)
+(* let tmp id = Id.to_string ((Id.of_string id) ^ "_sym_involutive") *)
+    
+(* Symmetry Involutive *)
 let sym_involutive_scheme_kind =
-  declare_individual_scheme_object ["sym";"involutive"]
+  declare_individual_scheme_object ["Symmetry";"Involutive"]
   ~deps:(fun _ ind -> [SchemeIndividualDep (ind, sym_scheme_kind)])
   build_sym_involutive_scheme
 
@@ -706,6 +712,7 @@ let build_r2l_rew_scheme dep env ind k =
 (* Gamma |- P p1..pn H   ==>   Gamma |- P a1..an C                    *)
 (* with H:I p1..pn a1..an in Gamma                                    *)
 (**********************************************************************)
+(* Reverse Dependent Rewrite *)
 let rew_l2r_dep_scheme_kind =
   declare_individual_scheme_object ["rew";"r";"dep"]
   ~deps:(fun _ ind -> [
@@ -720,6 +727,7 @@ let rew_l2r_dep_scheme_kind =
 (* with H:I a1..an in Gamma (non symmetric case)                      *)
 (* or   H:I b1..bn a1..an in Gamma (symmetric case)                   *)
 (**********************************************************************)
+(* Dependent Rewrite *)
 let rew_r2l_dep_scheme_kind =
   declare_individual_scheme_object ["rew";"dep"]
   (fun env _ ind -> build_r2l_rew_scheme true env ind InType)
@@ -730,6 +738,7 @@ let rew_r2l_dep_scheme_kind =
 (* with H:I a1..an in Gamma (non symmetric case)                      *)
 (* or   H:I b1..bn a1..an in Gamma (symmetric case)                   *)
 (**********************************************************************)
+(* Forward Dependent Rewrite *) 
 let rew_r2l_forward_dep_scheme_kind =
   declare_individual_scheme_object ["rew";"fwd";"dep"]
   (fun env _ ind -> build_r2l_forward_rew_scheme true env ind InType)
@@ -740,6 +749,7 @@ let rew_r2l_forward_dep_scheme_kind =
 (* Gamma, P p1..pn H |- D   ==>   Gamma, P a1..an C |- D              *)
 (* with H:I p1..pn a1..an in Gamma                                    *)
 (**********************************************************************)
+(* Forward Reverse Dependent Rewrite *)
 let rew_l2r_forward_dep_scheme_kind =
   declare_individual_scheme_object ["rew";"fwd";"r";"dep"]
   (fun env _ ind -> build_l2r_forward_rew_scheme true env ind InType)
@@ -753,6 +763,7 @@ let rew_l2r_forward_dep_scheme_kind =
 (* this is not a problem; we need though a fix to adjust it to the    *)
 (* standard form of schemes in Coq)                                   *)
 (**********************************************************************)
+(* Reverse Rewrite *)
 let rew_l2r_scheme_kind =
   declare_individual_scheme_object ["rew";"r"]
   (fun env _ ind -> fix_r2l_forward_rew_scheme env
@@ -764,6 +775,7 @@ let rew_l2r_scheme_kind =
 (* since r2l_rew works in the non-symmetric case as well as without   *)
 (* introducing commutative cuts, we adopt it                          *)
 (**********************************************************************)
+(* Rewrite *)
 let rew_r2l_scheme_kind =
   declare_individual_scheme_object ["rew"]
   (fun env _ ind -> build_r2l_rew_scheme false env ind InType)
@@ -850,6 +862,7 @@ let build_congr env (eq,refl,ctx) ind =
             mkApp (mkVar varf, [|lift (mip.mind_nrealargs+3) b|])|])|])))))))
   in c, UState.of_context_set ctx
 
+(* Congruence *)
 let congr_scheme_kind = declare_individual_scheme_object ["congr"]
   (fun env _ ind ->
      (* May fail if equality is not defined *)
