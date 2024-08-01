@@ -310,7 +310,7 @@ let build_sym_involutive_scheme env handle ind =
     
 (* Symmetry Involutive *)
 let sym_involutive_scheme_kind =
-  declare_individual_scheme_object ["Symmetry";"Involutive"]
+  declare_individual_scheme_object ["sym";"involutive"]
   ~deps:(fun _ ind -> [SchemeIndividualDep (ind, sym_scheme_kind)])
   build_sym_involutive_scheme
 

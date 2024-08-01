@@ -866,7 +866,11 @@ suff = string sans maj et avec underscore
 
 ** indtables
 
-clef de la table devient (string list * Term.sort_familly option)
+- [ ] clef de la table devient (string list * Term.sort_familly option) etc
+(pour supprimer isdep)
+
+- [ ] refaire tous les appelles à declare_individual_scheme dans
+eqscheme, elimscheme, auto ind decl
 
 ** Questions 
 
