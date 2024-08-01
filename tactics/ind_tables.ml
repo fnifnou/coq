@@ -82,7 +82,9 @@ let declare_mutual_scheme_object key ?suff ?deps f =
 let declare_individual_scheme_object key ?suff ?deps f =
   declare_scheme_object key ?suff (IndividualSchemeFunction (f, deps))
 
-let is_declared_scheme_object key = Hashtbl.mem scheme_object_table key
+let is_declared_scheme_object key =
+  let tmp = String.split_on_char '_' key in
+  Hashtbl.mem scheme_object_table tmp
 
 let scheme_kind_name (key : _ scheme_kind) : string list = key
 

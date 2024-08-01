@@ -56,7 +56,7 @@ val declare_individual_scheme_object : string list->
   individual_scheme_object_function ->
   individual scheme_kind
 
-val is_declared_scheme_object : string list -> bool
+val is_declared_scheme_object : string -> bool
 (** Is the string used as the name of a [scheme_kind]? *)
 
 val scheme_kind_name : _ scheme_kind -> string list

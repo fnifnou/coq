@@ -2074,7 +2074,7 @@ let vernac_locate ~pstate query =
   | LocateFile f -> locate_file f
 
 let warn_unknown_scheme_kind = CWarnings.create ~name:"unknown-scheme-kind"
-    Pp.(fun sk -> str "Unknown scheme kind " ++ Pp.prlist Pp.str sk ++ str ".")
+    Pp.(fun sk -> str "Unknown scheme kind " ++ Libnames.pr_qualid sk ++ str ".")
 
 let vernac_register ~atts qid r =
   let gr = Smartlocate.global_with_alias qid in
@@ -2113,13 +2113,14 @@ let vernac_register ~atts qid r =
       | ConstRef c -> c
       | _ -> CErrors.user_err ?loc:qid.loc Pp.(str "Register Scheme: expecing a constant.")
     in
-    (* let scheme_kind_s = Libnames.string_of_qualid scheme_kind in *)
-    let () = if not (Ind_tables.is_declared_scheme_object scheme_kind) then
-        warn_unknown_scheme_kind scheme_kind (* ?loc:scheme_kind.loc *)
+    let scheme_kind_s = Libnames.string_of_qualid scheme_kind in
+    let scheme_kind_s_list = String.split_on_char '_' scheme_kind_s in
+    let () = if not (Ind_tables.is_declared_scheme_object scheme_kind_s) then
+        warn_unknown_scheme_kind ?loc:scheme_kind.loc scheme_kind
     in
     let ind = Smartlocate.global_inductive_with_alias inductive in
     Dumpglob.add_glob ?loc:inductive.loc (IndRef ind);
-    DeclareScheme.declare_scheme local scheme_kind (ind,gr)
+    DeclareScheme.declare_scheme local scheme_kind_s_list (ind,gr)
 
 let vernac_library_attributes atts =
   if Global.is_curmod_library () && not (Lib.sections_are_opened ()) then
